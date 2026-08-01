@@ -1,0 +1,24 @@
+{
+  "name": "meting-api-enhanced",
+  "version": "1.0.0",
+  "description": "MetingAPIEnhanced - 基于 NeteaseCloudMusicAPI Enhanced 的 Meting 协议兼容层，支持解灰、VIP Cookie 透传",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "keywords": [
+    "meting",
+    "netease",
+    "cloud-music",
+    "api-enhanced",
+    "unblock"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-fileupload": "^1.5.2",
+    "safe-decode-uri-component": "^1.2.1"
+  }
+}

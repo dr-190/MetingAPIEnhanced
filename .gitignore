@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Build files
+dist/
+build/
+
+# API Enhanced specific
+api-enhanced/node_modules/
+api-enhanced/.git/
+api-enhanced/data/
+api-enhanced/*.log
+api-enhanced/test.png
+api-enhanced/test.txt
+
+# Backup files
+*.bak
+*.backup
+*_backup_*

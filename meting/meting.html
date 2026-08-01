@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meting API - 兼容层测试</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      font-size: 1.1em;
+      opacity: 0.9;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+
+    .card h2 {
+      color: #333;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #667eea;
+    }
+
+    .api-section {
+      margin-bottom: 20px;
+    }
+
+    .api-section h3 {
+      color: #555;
+      margin-bottom: 10px;
+      font-size: 1.1em;
+    }
+
+    .endpoint {
+      background: #f8f9fa;
+      border-left: 4px solid #667eea;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+      border-radius: 0 8px 8px 0;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 14px;
+      word-break: break-all;
+    }
+
+    .endpoint .method {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-right: 8px;
+    }
+
+    .endpoint .url {
+      color: #333;
+    }
+
+    .endpoint .desc {
+      color: #888;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .test-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .form-group {
+      flex: 1;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      color: #555;
+      font-weight: 500;
+    }
+
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .result-box {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 16px;
+      border-radius: 8px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      display: none;
+    }
+
+    .result-box.show {
+      display: block;
+    }
+
+    .result-box .key {
+      color: #9cdcfe;
+    }
+
+    .result-box .string {
+      color: #ce9178;
+    }
+
+    .result-box .number {
+      color: #b5cea8;
+    }
+
+    .quick-tests {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .quick-test-btn {
+      padding: 10px;
+      background: #f8f9fa;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: left;
+    }
+
+    .quick-test-btn:hover {
+      border-color: #667eea;
+      background: #f0f4ff;
+    }
+
+    .quick-test-btn .title {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .quick-test-btn .desc {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .player-section {
+      margin-top: 20px;
+    }
+
+    .cookie-input {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .cookie-input input {
+      flex: 1;
+      padding: 10px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-get {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .badge-post {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .badge-302 {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      color: #888;
+    }
+
+    .loading.show {
+      display: block;
+    }
+
+    .error {
+      color: #dc3545;
+      background: #f8d7da;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .error.show {
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      .form-row {
+        flex-direction: column;
+      }
+
+      .header h1 {
+        font-size: 1.8em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Meting API</h1>
+      <p>兼容 injahow/meting-api 协议 · 基于 api-enhanced</p>
+    </div>
+
+    <!-- 快速测试 -->
+    <div class="card">
+      <h2>快速测试</h2>
+      <div class="quick-tests">
+        <button class="quick-test-btn" onclick="quickTest('search', {id: '周杰伦', limit: 5})">
+          <div class="title">搜索歌曲</div>
+          <div class="desc">type=search&id=周杰伦</div>
+        </button>
+        <button class="quick-test-btn" onclick="quickTest('song', {id: '33894312'})">
+          <div class="title">歌曲详情</div>
+          <div class="desc">type=song&id=33894312</div>
+        </button>
+        <button class="quick-test-btn" onclick="quickTest('playlist', {id: '19723756'})">
+          <div class="title">歌单</div>
+          <div class="desc">type=playlist&id=19723756</div>
+        </button>
+        <button class="quick-test-btn" onclick="quickTest('lrc', {id: '33894312'})">
+          <div class="title">歌词</div>
+          <div class="desc">type=lrc&id=33894312</div>
+        </button>
+        <button class="quick-test-btn" onclick="quickTest('name', {id: '33894312'})">
+          <div class="title">歌曲名</div>
+          <div class="desc">type=name&id=33894312</div>
+        </button>
+        <button class="quick-test-btn" onclick="quickTest('artist', {id: '33894312'})">
+          <div class="title">歌手</div>
+          <div class="desc">type=artist&id=33894312</div>
+        </button>
+        <button class="quick-test-btn" onclick="quickTest('url', {id: '33894312', br: '320'})">
+          <div class="title">播放链接</div>
+          <div class="desc">type=url&id=33894312</div>
+        </button>
+        <button class="quick-test-btn" onclick="quickTest('pic', {id: '33894312', cover: '300'})">
+          <div class="title">封面图</div>
+          <div class="desc">type=pic&id=33894312</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- 自定义测试 -->
+    <div class="card">
+      <h2>自定义测试</h2>
+      <div class="test-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>类型 (type)</label>
+            <select id="testType">
+              <option value="search">search - 搜索</option>
+              <option value="song">song - 歌曲详情</option>
+              <option value="playlist">playlist - 歌单</option>
+              <option value="url">url - 播放链接</option>
+              <option value="pic">pic - 封面图</option>
+              <option value="lrc">lrc - 歌词</option>
+              <option value="name">name - 歌曲名</option>
+              <option value="artist">artist - 歌手</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>ID / 关键词</label>
+            <input type="text" id="testId" placeholder="歌曲ID 或 搜索关键词">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>音质 (br)</label>
+            <select id="testBr">
+              <option value="128">128 kbps</option>
+              <option value="192">192 kbps</option>
+              <option value="320" selected>320 kbps</option>
+              <option value="2000">FLAC 无损</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>封面分辨率 (cover)</label>
+            <input type="number" id="testCover" value="300" min="100" max="1000">
+          </div>
+          <div class="form-group">
+            <label>数量限制 (limit)</label>
+            <input type="number" id="testLimit" value="10" min="1" max="100">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>MUSIC_U Cookie (可选，VIP 解锁)</label>
+            <input type="text" id="testCookie" placeholder="输入你的 MUSIC_U token">
+          </div>
+        </div>
+        <div class="form-row">
+          <button class="btn btn-primary" onclick="runTest()">发送请求</button>
+          <button class="btn btn-secondary" onclick="copyUrl()">复制 URL</button>
+          <button class="btn btn-secondary" onclick="clearResult()">清除结果</button>
+        </div>
+      </div>
+
+      <div class="loading" id="loading">请求中...</div>
+      <div class="error" id="error"></div>
+      <div class="result-box" id="result"></div>
+    </div>
+
+    <!-- API 文档 -->
+    <div class="card">
+      <h2>API 文档</h2>
+
+      <div class="api-section">
+        <h3>参数说明</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr style="background: #f8f9fa;">
+            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6;">参数</th>
+            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6;">说明</th>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;"><code>server</code></td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;">数据源：netease（默认）｜tencent｜xiami｜kugou｜baidu｜kuwo（当前仅 netease，其他静默忽略）</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;"><code>type</code></td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;">请求类型：name｜artist｜url｜pic｜lrc｜song｜playlist｜search</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;"><code>id</code></td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;">歌曲/歌单 ID；type=search 时为搜索关键词</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;"><code>br</code></td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;">音质（仅 type=url，默认 320，可选 2000/flac/192/128）</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;"><code>cover</code></td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;">封面分辨率（仅 type=pic，默认 300；兼容旧参数 size）</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;"><code>limit</code></td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;">搜索条数（type=search，默认 30）</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;"><code>page</code></td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;">搜索页码（type=search，默认 1）</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="api-section">
+        <h3>接口列表</h3>
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="url">/meting/?type=search&id=关键词&limit=10</span>
+          <div class="desc">搜索歌曲，返回 JSON 数组</div>
+        </div>
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="url">/meting/?type=song&id=歌曲ID</span>
+          <div class="desc">获取歌曲详情，返回 JSON 数组</div>
+        </div>
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="url">/meting/?type=playlist&id=歌单ID</span>
+          <div class="desc">获取歌单，返回 JSON 数组</div>
+        </div>
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="url">/meting/?type=url&id=歌曲ID&br=320</span>
+          <div class="desc">获取播放链接，302 重定向</div>
+        </div>
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="url">/meting/?type=pic&id=图片ID&cover=300</span>
+          <div class="desc">获取封面图，302 重定向</div>
+        </div>
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="url">/meting/?type=lrc&id=歌曲ID</span>
+          <div class="desc">获取歌词（含中文翻译），返回纯文本</div>
+        </div>
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="url">/meting/?type=name&id=歌曲ID</span>
+          <div class="desc">获取歌曲名，返回纯文本</div>
+        </div>
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="url">/meting/?type=artist&id=歌曲ID</span>
+          <div class="desc">获取歌手名，返回纯文本</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- APlayer 集成 -->
+    <div class="card">
+      <h2>APlayer / MetingJS 集成</h2>
+      <div class="api-section">
+        <h3>HTML 代码</h3>
+        <div class="endpoint" style="background: #2d2d2d; color: #d4d4d4;">
+          <pre style="margin: 0; white-space: pre-wrap;">&lt;!-- APlayer --&gt;
+&lt;link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.css"&gt;
+&lt;div id="aplayer"&gt;&lt;/div&gt;
+&lt;script src="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.jsdelivr.net/npm/meting/dist/Meting.min.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  window.meting_api = '<span id="currentOrigin">http://localhost:3456</span>/meting/?server=:server&amp;type=:type&amp;id=:id&amp;auth=:auth&amp;r=:r'
+&lt;/script&gt;
+&lt;meting-js server="netease" type="playlist" id="2829883282"&gt;&lt;/meting-js&gt;</pre>
+        </div>
+      </div>
+
+      <div class="api-section">
+        <h3>在线预览</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>类型</label>
+            <select id="playerType">
+              <option value="playlist">歌单 (playlist)</option>
+              <option value="song">歌曲 (song)</option>
+              <option value="album">专辑 (album)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>ID</label>
+            <input type="text" id="playerId" value="19723756" placeholder="歌单/歌曲 ID">
+          </div>
+          <div class="form-group" style="flex: 0;">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" onclick="loadPlayer()">加载播放器</button>
+          </div>
+        </div>
+        <div id="aplayer-container" style="margin-top: 16px;"></div>
+      </div>
+    </div>
+
+    <!-- Cookie 说明 -->
+    <div class="card">
+      <h2>VIP 解锁</h2>
+      <div class="api-section">
+        <h3>Cookie 透传</h3>
+        <p style="margin-bottom: 12px; color: #666;">
+          要使用 VIP 功能，在请求头中传递 Cookie：<code>Cookie: MUSIC_U=你的token</code>
+        </p>
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="url">/meting/?type=url&id=歌曲ID</span>
+          <div class="desc">Header: Cookie: MUSIC_U=00D6706E17E980...</div>
+        </div>
+        <p style="margin-top: 12px; color: #666;">
+          无需 Cookie 时，灰色歌曲会自动尝试解灰。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- APlayer 资源 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.css">
+
+  <script>
+    const API_BASE = window.location.origin + '/meting/';
+
+    // 获取当前域名
+    document.getElementById('currentOrigin').textContent = window.location.origin;
+
+    // 快速测试
+    function quickTest(type, params) {
+      document.getElementById('testType').value = type;
+      document.getElementById('testId').value = params.id || '';
+      if (params.br) document.getElementById('testBr').value = params.br;
+      if (params.cover) document.getElementById('testCover').value = params.cover;
+      if (params.limit) document.getElementById('testLimit').value = params.limit;
+      runTest();
+    }
+
+    // 构建 URL
+    function buildUrl() {
+      const type = document.getElementById('testType').value;
+      const id = document.getElementById('testId').value;
+      const br = document.getElementById('testBr').value;
+      const cover = document.getElementById('testCover').value;
+      const limit = document.getElementById('testLimit').value;
+
+      const params = new URLSearchParams({ type });
+
+      if (id) {
+        if (type === 'search') {
+          params.set('id', id);
+        } else {
+          params.set('id', id);
+        }
+      }
+
+      if (type === 'url') params.set('br', br);
+      if (type === 'pic') params.set('cover', cover);
+      if (type === 'search') params.set('limit', limit);
+
+      return API_BASE + '?' + params.toString();
+    }
+
+    // 运行测试
+    async function runTest() {
+      const url = buildUrl();
+      const cookie = document.getElementById('testCookie').value;
+      const resultBox = document.getElementById('result');
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+
+      resultBox.classList.remove('show');
+      error.classList.remove('show');
+      loading.classList.add('show');
+
+      try {
+        const headers = {};
+        if (cookie) {
+          headers['Cookie'] = 'MUSIC_U=' + cookie;
+        }
+
+        const type = document.getElementById('testType').value;
+
+        // url 和 pic 类型需要跟随重定向
+        if (type === 'url' || type === 'pic') {
+          // 对于重定向，直接显示 URL
+          resultBox.textContent = '请求 URL: ' + url + '\n\n';
+          resultBox.textContent += '此接口会 302 重定向到实际资源 URL。\n';
+          resultBox.textContent += '在浏览器中访问此链接会自动跳转。\n\n';
+
+          // 尝试获取重定向 URL
+          try {
+            const resp = await fetch(url, { headers, redirect: 'manual' });
+            const redirectUrl = resp.headers.get('Location');
+            if (redirectUrl) {
+              resultBox.textContent += '重定向到:\n' + redirectUrl;
+            }
+          } catch (e) {
+            resultBox.textContent += '（无法获取重定向 URL，请在浏览器中直接访问）';
+          }
+        } else {
+          const resp = await fetch(url, { headers });
+          const data = await resp.text();
+
+          try {
+            const json = JSON.parse(data);
+            resultBox.textContent = JSON.stringify(json, null, 2);
+          } catch {
+            resultBox.textContent = data;
+          }
+        }
+
+        resultBox.classList.add('show');
+      } catch (err) {
+        error.textContent = '请求失败: ' + err.message;
+        error.classList.add('show');
+      } finally {
+        loading.classList.remove('show');
+      }
+    }
+
+    // 复制 URL
+    function copyUrl() {
+      const url = buildUrl();
+      navigator.clipboard.writeText(url).then(() => {
+        alert('URL 已复制到剪贴板');
+      }).catch(() => {
+        prompt('请复制 URL:', url);
+      });
+    }
+
+    // 清除结果
+    function clearResult() {
+      document.getElementById('result').classList.remove('show');
+      document.getElementById('error').classList.remove('show');
+    }
+
+    // 加载播放器
+    function loadPlayer() {
+      const type = document.getElementById('playerType').value;
+      const id = document.getElementById('playerId').value;
+      const container = document.getElementById('aplayer-container');
+
+      // 清除旧播放器
+      container.innerHTML = '';
+
+      // 创建 meting-js 元素
+      const metingJs = document.createElement('meting-js');
+      metingJs.setAttribute('server', 'netease');
+      metingJs.setAttribute('type', type);
+      metingJs.setAttribute('id', id);
+      metingJs.setAttribute('auto', '1');
+
+      container.appendChild(metingJs);
+    }
+
+    // 类型变化时更新 UI
+    document.getElementById('testType').addEventListener('change', function() {
+      const type = this.value;
+      const brGroup = document.getElementById('testBr').closest('.form-group');
+      const coverGroup = document.getElementById('testCover').closest('.form-group');
+      const limitGroup = document.getElementById('testLimit').closest('.form-group');
+
+      brGroup.style.display = type === 'url' ? 'block' : 'none';
+      coverGroup.style.display = type === 'pic' ? 'block' : 'none';
+      limitGroup.style.display = type === 'search' ? 'block' : 'none';
+
+      // 更新 placeholder
+      const idInput = document.getElementById('testId');
+      switch (type) {
+        case 'search':
+          idInput.placeholder = '搜索关键词';
+          break;
+        case 'playlist':
+          idInput.placeholder = '歌单 ID';
+          break;
+        default:
+          idInput.placeholder = '歌曲 ID';
+      }
+    });
+
+    // 初始化
+    document.getElementById('testType').dispatchEvent(new Event('change'));
+  </script>
+
+  <!-- MetingJS -->
+  <script src="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js"></script>
+  <script>
+    // 设置 meting_api 全局变量
+    window.meting_api = window.location.origin + '/meting/?server=:server&type=:type&id=:id&auth=:auth&r=:r';
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/meting@2.0.1/dist/Meting.min.js"></script>
+</body>
+</html>

@@ -6,6 +6,13 @@ node_modules/
 .env.local
 .env.*.local
 
+# Git config (contains token)
+.git-config
+.git-credentials
+
+# Push script
+push-to-github.sh
+
 # Logs
 *.log
 logs/

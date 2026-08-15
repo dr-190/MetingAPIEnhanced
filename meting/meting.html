@@ -179,6 +179,38 @@
       display: block;
     }
 
+    .media-result {
+      margin-top: 16px;
+      display: none;
+    }
+
+    .media-result.show {
+      display: block;
+    }
+
+    .media-result audio {
+      width: 100%;
+      border-radius: 8px;
+    }
+
+    .media-result img {
+      max-width: 100%;
+      max-height: 300px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .media-result .lrc-content {
+      background: #f8f9fa;
+      padding: 16px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
     .result-box .key {
       color: #9cdcfe;
     }
@@ -302,8 +334,8 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>Meting API</h1>
-      <p>兼容 injahow/meting-api 协议 · 基于 api-enhanced</p>
+      <h1>Meting API 测试页</h1>
+      <p>兼容 injahow/meting-api 协议 · 支持在线试听/预览 · 基于 api-enhanced v4.40.0</p>
     </div>
 
     <!-- 快速测试 -->
@@ -397,12 +429,14 @@
           <button class="btn btn-primary" onclick="runTest()">发送请求</button>
           <button class="btn btn-secondary" onclick="copyUrl()">复制 URL</button>
           <button class="btn btn-secondary" onclick="clearResult()">清除结果</button>
+          <button class="btn btn-secondary" onclick="clearTestCookie()">清除测试 Cookie</button>
         </div>
       </div>
 
       <div class="loading" id="loading">请求中...</div>
       <div class="error" id="error"></div>
       <div class="result-box" id="result"></div>
+      <div class="media-result" id="mediaResult"></div>
     </div>
 
     <!-- API 文档 -->
@@ -603,40 +637,57 @@
       const url = buildUrl();
       const cookie = document.getElementById('testCookie').value;
       const resultBox = document.getElementById('result');
+      const mediaBox = document.getElementById('mediaResult');
       const loading = document.getElementById('loading');
       const error = document.getElementById('error');
 
       resultBox.classList.remove('show');
+      mediaBox.classList.remove('show');
+      mediaBox.innerHTML = '';
       error.classList.remove('show');
       loading.classList.add('show');
 
       try {
-        const headers = {};
+        // 如果填写了 MUSIC_U，通过 document.cookie 设置到当前域
+        // 浏览器会自动在后续请求中带上
         if (cookie) {
-          headers['Cookie'] = 'MUSIC_U=' + cookie;
+          document.cookie = 'MUSIC_U=' + cookie + '; path=/; SameSite=Lax';
         }
 
         const type = document.getElementById('testType').value;
 
-        // url 和 pic 类型需要跟随重定向
         if (type === 'url' || type === 'pic') {
-          // 对于重定向，直接显示 URL
-          resultBox.textContent = '请求 URL: ' + url + '\n\n';
-          resultBox.textContent += '此接口会 302 重定向到实际资源 URL。\n';
-          resultBox.textContent += '在浏览器中访问此链接会自动跳转。\n\n';
+          // 获取重定向后的真实 URL
+          resultBox.textContent = '请求 URL: ' + url + '\n\n正在获取重定向地址...';
 
-          // 尝试获取重定向 URL
-          try {
-            const resp = await fetch(url, { headers, redirect: 'manual' });
-            const redirectUrl = resp.headers.get('Location');
-            if (redirectUrl) {
-              resultBox.textContent += '重定向到:\n' + redirectUrl;
+          const resp = await fetch(url, {
+            redirect: 'manual',
+            credentials: 'include'
+          });
+          const redirectUrl = resp.headers.get('Location');
+
+          if (redirectUrl && redirectUrl.startsWith('http')) {
+            resultBox.textContent += '\n\n重定向到:\n' + redirectUrl;
+
+            if (type === 'url') {
+              mediaBox.innerHTML = '<audio controls src="' + redirectUrl + '" preload="none"></audio>';
+              mediaBox.classList.add('show');
+            } else if (type === 'pic') {
+              mediaBox.innerHTML = '<img src="' + redirectUrl + '" alt="cover" />';
+              mediaBox.classList.add('show');
             }
-          } catch (e) {
-            resultBox.textContent += '（无法获取重定向 URL，请在浏览器中直接访问）';
+          } else {
+            resultBox.textContent += '\n\n未能获取有效重定向地址，响应状态: ' + resp.status;
           }
+        } else if (type === 'lrc') {
+          const resp = await fetch(url, { credentials: 'include' });
+          const data = await resp.text();
+
+          resultBox.textContent = '歌词内容：\n\n' + data;
+          mediaBox.innerHTML = '<div class="lrc-content">' + data.replace(/</g, '&lt;') + '</div>';
+          mediaBox.classList.add('show');
         } else {
-          const resp = await fetch(url, { headers });
+          const resp = await fetch(url, { credentials: 'include' });
           const data = await resp.text();
 
           try {
@@ -670,6 +721,13 @@
     function clearResult() {
       document.getElementById('result').classList.remove('show');
       document.getElementById('error').classList.remove('show');
+    }
+
+    // 清除测试 Cookie
+    function clearTestCookie() {
+      document.cookie = 'MUSIC_U=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.getElementById('testCookie').value = '';
+      alert('测试 Cookie 已清除');
     }
 
     // 加载播放器

@@ -1,0 +1,60 @@
+diff --git a/node_modules/@neteasecloudmusicapienhanced/unblockmusic-utils/modules/qijieya.js b/node_modules/@neteasecloudmusicapienhanced/unblockmusic-utils/modules/qijieya.js
+index 3593fc6..91bc6b4 100644
+--- a/node_modules/@neteasecloudmusicapienhanced/unblockmusic-utils/modules/qijieya.js
++++ b/node_modules/@neteasecloudmusicapienhanced/unblockmusic-utils/modules/qijieya.js
+@@ -9,7 +9,7 @@ const logger = require('../src/logger');
+ module.exports = {
+     async qijieya(id) {
+         try {
+-            const response = await axios.get(`https://163api.qijieya.cn/meting/?type=url&id=${id}`, {
++            const response = await axios.get(`https://api.qijieya.cn/meting/?type=url&id=${id}`, {
+                 maxRedirects: 0,
+                 validateStatus: (status) => status >= 200 && status < 400
+             });
+@@ -22,7 +22,7 @@ module.exports = {
+             return null;
+         } catch (error) {
+             try {
+-                const response = await axios.get(`https://163api.qijieya.cn/meting/?type=url&id=${id}`);
++                const response = await axios.get(`https://api.qijieya.cn/meting/?type=url&id=${id}`);
+                 if (typeof response.data === 'string' && response.data.startsWith('http')) {
+                     return response.data;
+                 }
+diff --git a/node_modules/@neteasecloudmusicapienhanced/unblockmusic-utils/modules/qijieyaPlus.js b/node_modules/@neteasecloudmusicapienhanced/unblockmusic-utils/modules/qijieyaPlus.js
+index e34897a..ab0311e 100644
+--- a/node_modules/@neteasecloudmusicapienhanced/unblockmusic-utils/modules/qijieyaPlus.js
++++ b/node_modules/@neteasecloudmusicapienhanced/unblockmusic-utils/modules/qijieyaPlus.js
+@@ -1,25 +1,13 @@
+-const axios = require('axios');
+-const logger = require('../src/logger');
+-const br = process.env.DISABLE_FLAC === 'true' ? 'exhigh' : 'hi-res';
++const logger = require('../src/logger')
+ 
+-/** * 通过gdmusic音源获取音乐URL
++/**
++ * qijieyaPlus 音源已不可用，保留占位符
+  * @param {string} id - 网易云音乐歌曲ID
+- * @returns {string|null} 音乐URL或null
++ * @returns {null}
+  */
+-
+ module.exports = {
+-    async gdmusic(id) {
+-        try {
+-            const response = await axios.get(`https://163api.qijieya.cn/song/url/v1?id=${id}&level=${br}`);
+-            logger.info(`qijieyaPlus response: ${JSON.stringify(response.data)}`);
+-            const data = response.data.data[0];
+-            if (data.url) {
+-                return data.url;
+-            }
+-            return null;
+-        } catch (error) {
+-            logger.error(`qijieyaPlus error: ${error.message}`);
+-            return null;
+-        }
+-    }
++  async gdmusic(id) {
++    logger.warn('qijieyaPlus source is deprecated and returns null')
++    return null
++  }
+ }

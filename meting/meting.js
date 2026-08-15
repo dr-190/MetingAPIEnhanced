@@ -227,10 +227,14 @@ function createMetingRoute(requestFunc, moduleDefinitions) {
         req: req
       }
 
-      // 获取 Cookie
-      const cookie = req.headers.cookie || ''
+      // 获取 Cookie：优先使用请求头里的登录态 cookie，否则使用环境变量 NETEASE_COOKIE
       let cookieObj = {}
-      if (cookie) cookieObj = cookieToJson(cookie)
+      if (req.headers.cookie) {
+        cookieObj = cookieToJson(req.headers.cookie)
+      }
+      if (!cookieObj.MUSIC_U && process.env.NETEASE_COOKIE) {
+        cookieObj = cookieToJson(process.env.NETEASE_COOKIE)
+      }
 
       const query = {
         type,
@@ -263,12 +267,23 @@ function createMetingRoute(requestFunc, moduleDefinitions) {
         }
 
         case 'url': {
-          const urlRes = await callModule('song_url_v1_302', {
+          let urlRes = await callModule('song_url_v1_302', {
             id: String(id),
             level: metingBrToLevel(opts.br),
             cookie: cookieObj
           })
           let finalUrl = urlRes.redirectUrl || null
+
+          // fallback 到 song_url_v1（xeapi 接口更稳定）
+          if (!finalUrl) {
+            urlRes = await callModule('song_url_v1', {
+              id: String(id),
+              level: metingBrToLevel(opts.br),
+              cookie: cookieObj
+            })
+            const dataItem = (urlRes.body && urlRes.body.data && urlRes.body.data[0]) || null
+            finalUrl = dataItem && dataItem.url
+          }
 
           if (
             process.env.ENABLE_GENERAL_UNBLOCK === 'true' &&

@@ -2,6 +2,8 @@
 
 基于 [NeteaseCloudMusicAPI Enhanced](https://github.com/neteasecloudmusicapienhanced/api-enhanced) 的 Meting 协议兼容层，支持解灰、VIP Cookie 透传、APlayer/MetingJS 集成。
 
+> 当前版本：`v1.0.0`
+
 ## 特性
 
 - 完全兼容 [injahow/meting-api](https://github.com/injahow/meting-api) 协议
@@ -157,18 +159,58 @@ curl -H "Cookie: MUSIC_U=你的token" https://your-domain.com/meting/?type=url&i
 
 ---
 
+## 环境变量
+
+参考 `.env.example` 文件：
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `PORT` | `3456` | 服务端口 |
+| `CORS_ALLOW_ORIGIN` | `*` | 允许跨域请求的域名，多个用逗号分隔 |
+| `ENABLE_PROXY` | `false` | 启用反向代理 |
+| `PROXY_URL` | （空） | 代理地址，启用代理时必填 |
+| `ENABLE_RANDOM_CN_IP` | `false` | 启用随机中国 IP |
+| `ENABLE_GENERAL_UNBLOCK` | `false` | 启用全局解灰（不推荐开启） |
+| `ENABLE_FLAC` | `true` | 启用无损音质 |
+| `SELECT_MAX_BR` | `false` | 启用无损音质时选择最高码率 |
+| `FOLLOW_SOURCE_ORDER` | `true` | 严格按照音源顺序匹配 |
+| `NETEASE_COOKIE` | （空） | 默认网易云 Cookie，格式：`MUSIC_U=xxx` |
+| `BASE_URL` | （空） | 基础 URL，留空自动推断 |
+
+---
+
 ## 更新 api-enhanced
 
-当 api-enhanced 有更新时，只需更新 `api-enhanced/` 子目录：
+当 api-enhanced 有更新时，只需更新 `api-enhanced/` 子目录，然后重新应用补丁：
 
 ```bash
 cd /www/wwwroot/Metingapi/MetingAPIEnhanced
 rm -rf api-enhanced
 git clone --depth 1 https://github.com/neteasecloudmusicapienhanced/api-enhanced.git api-enhanced
 cd api-enhanced && npm install && cd ..
+
+# 重新应用本地补丁
+npx patch-package
 ```
 
-我们的文件（meting/、server.js、app.js、.env）不会被覆盖。
+我们的文件（`meting/`、`server.js`、`app.js`、`.env`）不会被覆盖。
+
+> 提示：项目已配置 `postinstall` 脚本，执行 `npm install` 时会自动运行 `patch-package`。如果补丁应用失败，请检查 `patches/` 目录下的补丁是否仍然适用于当前 `api-enhanced` 版本。
+
+---
+
+## 更新日志
+
+### v1.0.0
+
+- 仓库迁移至 `https://github.com/dr-190/MetingAPIEnhanced`
+- 集成在线播放器页面 (`public/player.html`)
+- 使用 `patch-package` 管理本地补丁
+- 修复 `qijieya` 音源匹配问题
+- 升级 `api-enhanced` 至 v4.40.0
+- 重构 `meting` URL 接口，支持自动跟随域名
+- 支持 VIP Cookie 透传与灰色歌曲自动解灰
+- 支持随机中国 IP 与多种加密方式（weapi/eapi/xeapi）
 
 ---
 

@@ -49,3 +49,4 @@ api-enhanced/test.txt
 *.bak
 *.backup
 *_backup_*
+api-enhanced-backup-*/

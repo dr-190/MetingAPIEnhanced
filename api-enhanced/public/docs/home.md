@@ -826,6 +826,8 @@ tags: 歌单标签
 
 `lasttime` : 返回数据的 `lasttime` ,默认-1,传入上一次返回结果的 lasttime,将会返回下一页的数据
 
+接口会传入官方客户端使用的 `fromRN=true`，登录用户读取自己的动态时可获得网易云允许本人查看的非公开动态。返回的 `size` 是网易云账户侧统计值，不保证等于分页后实际可获取的动态数量。
+
 **接口地址 :** `/user/event`
 
 **调用例子 :** `/user/event?uid=32953014` `/user/event?uid=32953014&limit=1&lasttime=1558011138743`
@@ -842,6 +844,38 @@ tags: 歌单标签
 24 分享专栏文章
 41、21 分享视频
 ```
+
+### 获取当前登录用户的全部可枚举动态
+
+说明 : 登录后调用此接口，会组合 `/user/account` 与 `/user/event` 的原子能力：先从 Cookie 取得当前用户 id，再自动跟随 `lasttime` 游标读取至 `more=false`。接口返回网易云允许当前用户本人查看的公开及非公开动态，不能读取其他用户的私密动态。
+
+本接口不接受 `limit` 或 `lasttime`，一次请求会完成全部上游分页。账号动态较多时，请预留足够的请求时间。
+
+数量字段说明：
+
+- `size`：网易云返回的账户统计数量，可能包含已删除、被屏蔽、资源失效或旧类型且不再下发的记录。
+- `retrievedCount`：本次实际取得的唯一动态数量，始终等于 `events.length`。
+- `unavailableCount`：`size - retrievedCount` 的正差值；缺失记录没有返回 id，无法继续读取或修改。
+- `sizeMismatch`：`size` 与 `retrievedCount` 是否不一致。若上游未返回 `size`，相关字段为 `null`。
+- `pageCount`：本次实际请求的上游分页数量。
+
+每条动态的 `privacySetting` 表示当前可见权限：`0` 为所有人，`1` 为我关注的人，`2` 为仅自己，`6` 为互相关注的人。
+
+**接口地址 :** `/user/event/all`
+
+**调用例子 :** `/user/event/all`
+
+### 修改动态可见权限
+
+说明 : 登录后调用此接口，可以修改当前账号本人发布的单条动态的可见权限。此接口只负责一次原子修改；上游没有批量修改接口。如需批量操作，可先调用 `/user/event/all` 并按 `privacySetting` 筛选，再由调用方逐条调用本接口，同时自行处理限速、失败重试和部分成功。
+
+**必选参数 :** `evId` : 动态 id
+
+`privacy` : 目标可见权限。`0` 为所有人，`1` 为我关注的人，`2` 为仅自己，`6` 为互相关注的人
+
+**接口地址 :** `/event/privacy`
+
+**调用例子 :** `/event/privacy?evId=6712917601&privacy=0`
 
 ### 转发用户动态
 
@@ -1229,7 +1263,6 @@ tags: 歌单标签
 > 你传入 limit=50&offset=50，你会得到第 51-100 首歌曲
 
 > 如果你设置 limit=50&offset=100，你就会得到第 101-150 首歌曲
-
 
 ### 歌单详情动态
 
@@ -3592,6 +3625,36 @@ type='1009' 获取其 id, 如`/search?keywords= 代码时间 &type=1009`
 
 **调用例子 :** `/yunbei/task/finish?userTaskId=5146243240&depositCode=0`
 
+### 云贝广告任务 - 今日任务状态
+
+说明 :登录后调用此接口可查询云贝广告任务（"听歌/看视频得云贝"）今日状态。逆向自云贝任务中心 H5 页面（st.music.163.com/yunbei-listen）。返回 `times`（今日已完成次数）、`amount`（今日累计云贝）、`singleAmount`（单次可得云贝）。单日上限 10 次。
+
+**接口地址 :** `/yunbei/task/list/v1`
+
+**调用例子 :** `/yunbei/task/list/v1`
+
+### 云贝广告任务 - 获取推荐歌曲
+
+说明 :登录后调用此接口可获取云贝广告任务的推荐歌曲列表。返回数组项含 `songId`、`songName`、`artistName`、`albumUrl`、`songChorusStartTime`、`likeFlag`、`alg`（均为 `alg_payrec_yunBei_*`）。
+
+**可选参数 :** `offset`: 偏移数量，默认为 0
+
+`limit`: 取出数量，默认为 10（客户端每次固定取 10 首）
+
+**接口地址 :** `/yunbei/task/recommend/song`
+
+**调用例子 :** `/yunbei/task/recommend/song` `/yunbei/task/recommend/song?offset=0&limit=10`
+
+### 云贝广告任务 - 完成任务领取云贝
+
+说明 :登录后调用此接口可完成任务并领取云贝。实测仅需传 `yunbeiAmount`（单次云贝数，客户端从 `list` 接口的 `singleAmount` 取值，当前为 150）即可成功领取，无需真实听歌/看视频。单日上限 10 次 × 150 = 1500 云贝/天，超限返回 `code:400 "单日完成任务数已达上限"`。建议领取前先调用 `/yunbei/task/list/v1` 查询今日剩余次数。
+
+**可选参数 :** `yunbeiAmount`: 单次云贝数，默认为 150
+
+**接口地址 :** `/yunbei/task/finish/v1`
+
+**调用例子 :** `/yunbei/task/finish/v1?yunbeiAmount=150`
+
 ### 云贝收入
 
 说明 :登录后调用此接口可获取云贝收入
@@ -4337,27 +4400,33 @@ ONLINE 已发布
 
 ### 播客上传声音
 
-说明: 可以上传声音到播客,例子在 `/public/voice_upload.html` 访问地址: <a href="/voice_upload.html" target="_blank">/voice_upload.html</a>
+说明: 登录后调用此接口,使用`'Content-Type': 'multipart/form-data'`上传声音文件 formData(name 为`songFile`),可通过 formData(name 为`imgFile`)同时上传声音封面。例子在 `/public/voice_upload.html` 访问地址: <a href="/voice_upload.html" target="_blank">/voice_upload.html</a>
 
 **接口地址:** `/voice/upload`
 
 **必选参数：**
-`voiceListId`: 播客 id
 
-`coverImgId`: 播客封面
+`songFile`: 声音文件
+
+`voiceListId`: 播客 id
 
 `categoryId`: 分类 id
 
-`secondCategoryId`:次级分类 id
+`secondCategoryId`: 次级分类 id
 
 `description`: 声音介绍
 
 **可选参数：**
+
+`imgFile`: 声音封面图片文件,上传后会自动生成图片 id。与`coverImgId`同时传入时,优先使用`imgFile`
+
+`coverImgId`: 已上传的声音封面图片 id,未传入`imgFile`时使用该值
+
 `songName`: 声音名称
 
-`privacy`: 设为隐私声音,播客如果是隐私博客,则必须设为 1
+`privacy`: 设为隐私声音,播客如果是隐私播客,则必须设为 1
 
-`publishTime`:默认立即发布,定时发布的话需传入时间戳
+`publishTime`: 默认立即发布,定时发布的话需传入时间戳
 
 `autoPublish`: 是否发布动态,是则传入 1
 
@@ -5154,7 +5223,6 @@ let data = encodeURIComponent(
 
 **调用例子:** `/broadcast/sub?id=5&t=1`
 
-
 ### 用户的创建歌单列表
 
 说明 : 调用此接口, 传入用户id, 获取用户的创建歌单列表
@@ -5228,7 +5296,6 @@ let data = encodeURIComponent(
 **接口地址 :** `/voicelist/my/created`
 
 **调用例子 :** `/voicelist/my/created`
-
 
 ### DIFM电台 - 分类
 
@@ -5408,7 +5475,7 @@ let data = encodeURIComponent(
 
 **接口地址 :** `/comment/report`
 
-**调用例子 :* `/comment/report?id=2058263032&cid=123456789&reason=人身攻击`
+*_调用例子 :_ `/comment/report?id=2058263032&cid=123456789&reason=人身攻击`
 
 ### 多级行政区划数据
 
@@ -5498,13 +5565,23 @@ let data = encodeURIComponent(
 
 **调用例子 :** `/ad/get`
 
-### 获取30分钟免费听歌时长
+### 看广告领取权益（免费听歌时长 / 云贝等）
 
-说明 : 登录后调用此接口, 获取30分钟免费听歌时长
+说明 : 登录后调用此接口, 领取广告权益。权益类型由广告平台下发的配置决定, 不仅限于 30 分钟免费听歌时长, 还包括"看视频获得最高 2000 云贝"等拉新分段权益(`rightsGainMethod=6`)。除下方常用参数外, 权益类型/时长/扩展权益等其余字段会自动从广告下发配置补齐, 无需手动传入。
 
 !> 警告: 通过调取接口出现的任何问题由调用者自行承担
 
-**可选参数 :** `reqUid` 通过`/ad/get` 获取的广告ID
+**可选参数 :**
+
+`reqUid` : 广告请求 ID, 通过 `/ad/get` 获取, 未传时自动获取
+
+`uid` : 当前登录用户 ID, 不传时服务端从 Cookie 识别
+
+`rightsGainMethod` : 权益领取方式, `1`: 曝光, `2`: 曝光+点击(默认), `3`: 曝光+下载, `4`: 点击+停留, `5`: 曝光或点击停留, `6`: 拉新曝光/下载分段权益(看视频得云贝)
+
+`type_ids` : 广告位类型, 默认 `["400002_0"]`
+
+`creativeType` : 广告创意类型, 激励视频场景为 `36`, 默认 `36`
 
 **接口地址 :** `/ad/listening/rights/gain`
 

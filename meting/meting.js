@@ -121,7 +121,9 @@ function createMetingRoute(requestFunc, moduleDefinitions) {
     return mod.module(query, (...params) => {
       const obj = [...params]
       const options = obj[2] || {}
-      if (options.randomCNIP !== false) options.randomCNIP = true
+      if (process.env.ENABLE_RANDOM_CN_IP === 'true') {
+        if (options.randomCNIP !== false) options.randomCNIP = true
+      }
       obj[2] = options
       return requestFunc(...obj)
     })
@@ -261,15 +263,17 @@ function createMetingRoute(requestFunc, moduleDefinitions) {
         }
 
         case 'url': {
-          const urlRes = await callModule('song_url', {
+          const urlRes = await callModule('song_url_v1_302', {
             id: String(id),
-            br: metingBrToNcmBr(opts.br),
+            level: metingBrToLevel(opts.br),
             cookie: cookieObj
           })
-          const dataItem = (urlRes.body && urlRes.body.data && urlRes.body.data[0]) || null
-          let finalUrl = dataItem && dataItem.url
+          let finalUrl = urlRes.redirectUrl || null
 
-          if (!finalUrl || needsUnblock(dataItem)) {
+          if (
+            process.env.ENABLE_GENERAL_UNBLOCK === 'true' &&
+            !finalUrl
+          ) {
             finalUrl = await unblockUrl(id)
           }
 
@@ -341,6 +345,20 @@ function metingBrToNcmBr(br) {
     case 192: return 192000
     case 128: return 128000
     default: return 320000
+  }
+}
+
+/**
+ * meting 协议 br (kbps) → NCM level
+ */
+function metingBrToLevel(br) {
+  const n = parseInt(br, 10)
+  switch (n) {
+    case 2000: return 'lossless'
+    case 320: return 'exhigh'
+    case 192: return 'higher'
+    case 128: return 'standard'
+    default: return 'exhigh'
   }
 }
 

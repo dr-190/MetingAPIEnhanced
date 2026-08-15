@@ -295,6 +295,12 @@ function createMetingRoute(requestFunc, moduleDefinitions) {
           if (!finalUrl) {
             return res.status(404).json({ code: 404, msg: 'No playable URL found' })
           }
+
+          // HTTPS 页面中无法加载 HTTP 资源，尝试升级为 HTTPS
+          if (finalUrl.startsWith('http://')) {
+            finalUrl = 'https://' + finalUrl.slice(7)
+          }
+
           return res.redirect(302, finalUrl)
         }
 

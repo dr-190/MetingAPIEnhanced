@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Meting API - 兼容层测试</title>
+  <link rel="icon" href="https://meting.503555.xyz/docs/netease.png">
   <style>
     * {
       margin: 0;
@@ -342,37 +343,37 @@
     <div class="card">
       <h2>快速测试</h2>
       <div class="quick-tests">
-        <button class="quick-test-btn" onclick="quickTest('search', {id: '周杰伦', limit: 5})">
+        <button class="quick-test-btn" onclick="quickTest('search', {id: '薛之谦', limit: 5})">
           <div class="title">搜索歌曲</div>
-          <div class="desc">type=search&id=周杰伦</div>
+          <div class="desc">type=search&id=薛之谦</div>
         </button>
-        <button class="quick-test-btn" onclick="quickTest('song', {id: '33894312'})">
+        <button class="quick-test-btn" onclick="quickTest('song', {id: '3407451664'})">
           <div class="title">歌曲详情</div>
-          <div class="desc">type=song&id=33894312</div>
+          <div class="desc">type=song&id=3407451664</div>
         </button>
-        <button class="quick-test-btn" onclick="quickTest('playlist', {id: '19723756'})">
+        <button class="quick-test-btn" onclick="quickTest('playlist', {id: '17987598379'})">
           <div class="title">歌单</div>
-          <div class="desc">type=playlist&id=19723756</div>
+          <div class="desc">type=playlist&id=17987598379</div>
         </button>
-        <button class="quick-test-btn" onclick="quickTest('lrc', {id: '33894312'})">
+        <button class="quick-test-btn" onclick="quickTest('lrc', {id: '3407451664'})">
           <div class="title">歌词</div>
-          <div class="desc">type=lrc&id=33894312</div>
+          <div class="desc">type=lrc&id=3407451664</div>
         </button>
-        <button class="quick-test-btn" onclick="quickTest('name', {id: '33894312'})">
+        <button class="quick-test-btn" onclick="quickTest('name', {id: '3407451664'})">
           <div class="title">歌曲名</div>
-          <div class="desc">type=name&id=33894312</div>
+          <div class="desc">type=name&id=3407451664</div>
         </button>
-        <button class="quick-test-btn" onclick="quickTest('artist', {id: '33894312'})">
+        <button class="quick-test-btn" onclick="quickTest('artist', {id: '32507038'})">
           <div class="title">歌手</div>
-          <div class="desc">type=artist&id=33894312</div>
+          <div class="desc">type=artist&id=32507038</div>
         </button>
-        <button class="quick-test-btn" onclick="quickTest('url', {id: '33894312', br: '320'})">
+        <button class="quick-test-btn" onclick="quickTest('url', {id: '3407451664', br: '320'})">
           <div class="title">播放链接</div>
-          <div class="desc">type=url&id=33894312</div>
+          <div class="desc">type=url&id=3407451664</div>
         </button>
-        <button class="quick-test-btn" onclick="quickTest('pic', {id: '33894312', cover: '300'})">
+        <button class="quick-test-btn" onclick="quickTest('pic', {id: '3407451664', cover: '300'})">
           <div class="title">封面图</div>
-          <div class="desc">type=pic&id=33894312</div>
+          <div class="desc">type=pic&id=3407451664</div>
         </button>
       </div>
     </div>
@@ -540,7 +541,7 @@
 &lt;script&gt;
   window.meting_api = '<span id="currentOrigin">http://localhost:3456</span>/meting/?server=:server&amp;type=:type&amp;id=:id&amp;auth=:auth&amp;r=:r'
 &lt;/script&gt;
-&lt;meting-js server="netease" type="playlist" id="2829883282"&gt;&lt;/meting-js&gt;</pre>
+&lt;meting-js server="netease" type="playlist" id="19723756"&gt;&lt;/meting-js&gt;</pre>
         </div>
       </div>
 
@@ -568,6 +569,13 @@
       </div>
     </div>
 
+    <!-- 在线播放器 -->
+    <div class="card">
+      <h2>在线播放器</h2>
+      <p style="margin-bottom: 12px; color: #666;">输入歌单 ID 即可在线试听，播放器支持播放/暂停、切歌、歌词、歌单列表。</p>
+      <iframe src="/player.html" style="width: 100%; height: 600px; border: none; border-radius: 12px;" allow="autoplay"></iframe>
+    </div>
+
     <!-- Cookie 说明 -->
     <div class="card">
       <h2>VIP 解锁</h2>
@@ -583,6 +591,32 @@
         </div>
         <p style="margin-top: 12px; color: #666;">
           无需 Cookie 时，灰色歌曲会自动尝试解灰。
+        </p>
+      </div>
+
+      <div class="api-section" style="margin-top: 24px;">
+        <h3>如何获取 MUSIC_U</h3>
+        <ol style="color: #666; line-height: 1.8; padding-left: 20px;">
+          <li>打开 <a href="https://music.163.com" target="_blank" style="color: #667eea;">music.163.com</a></li>
+          <li>登录你的网易云账号（VIP 账号才能解锁 VIP 歌曲）</li>
+          <li>按 <kbd>F12</kbd> 打开开发者工具，切换到 <strong>Application / 应用</strong> 标签</li>
+          <li>左侧选择 <strong>Cookies > https://music.163.com</strong></li>
+          <li>找到 <code>MUSIC_U</code> 字段，复制它的 Value</li>
+        </ol>
+      </div>
+
+      <div class="api-section" style="margin-top: 24px;">
+        <h3>使用方式</h3>
+        <p style="margin-bottom: 12px; color: #666;">方式一：在请求头中携带 Cookie</p>
+        <div class="endpoint" style="margin-bottom: 16px;">
+          <span class="url">curl -H "Cookie: MUSIC_U=你的token" "https://meting.503555.xyz/meting/?type=url&id=3407451664&br=320"</span>
+        </div>
+        <p style="margin-bottom: 12px; color: #666;">方式二：在服务器 .env 中配置默认 Cookie</p>
+        <div class="endpoint" style="margin-bottom: 16px;">
+          <span class="url">NETEASE_COOKIE = "MUSIC_U=你的token"</span>
+        </div>
+        <p style="color: #666;">
+          配置后，未携带 Cookie 的请求会自动使用 .env 中的 Cookie。
         </p>
       </div>
     </div>
@@ -657,37 +691,39 @@
         const type = document.getElementById('testType').value;
 
         if (type === 'url' || type === 'pic') {
-          // 获取重定向后的真实 URL
-          resultBox.textContent = '请求 URL: ' + url + '\n\n正在获取重定向地址...';
+          // 先验证请求是否能成功，成功后再显示媒体；失败则显示响应内容
+          resultBox.textContent = '请求 URL: ' + url + '\n\n正在验证资源...';
 
           const resp = await fetch(url, {
-            redirect: 'manual',
-            credentials: 'include'
+            redirect: 'follow'
           });
-          const redirectUrl = resp.headers.get('Location');
 
-          if (redirectUrl && redirectUrl.startsWith('http')) {
-            resultBox.textContent += '\n\n重定向到:\n' + redirectUrl;
+          if (!resp.ok) {
+            const text = await resp.text();
+            resultBox.textContent += '\n\n请求失败，状态码: ' + resp.status + '\n\n响应内容:\n' + text;
+          } else {
+            const blob = await resp.blob();
+            const blobUrl = URL.createObjectURL(blob);
+
+            resultBox.textContent += '\n\n资源验证成功，大小: ' + (blob.size / 1024).toFixed(2) + ' KB';
 
             if (type === 'url') {
-              mediaBox.innerHTML = '<audio controls src="' + redirectUrl + '" preload="none"></audio>';
+              mediaBox.innerHTML = '<audio controls src="' + blobUrl + '" preload="none"></audio>';
               mediaBox.classList.add('show');
             } else if (type === 'pic') {
-              mediaBox.innerHTML = '<img src="' + redirectUrl + '" alt="cover" />';
+              mediaBox.innerHTML = '<img src="' + blobUrl + '" alt="cover" />';
               mediaBox.classList.add('show');
             }
-          } else {
-            resultBox.textContent += '\n\n未能获取有效重定向地址，响应状态: ' + resp.status;
           }
         } else if (type === 'lrc') {
-          const resp = await fetch(url, { credentials: 'include' });
+          const resp = await fetch(url);
           const data = await resp.text();
 
           resultBox.textContent = '歌词内容：\n\n' + data;
           mediaBox.innerHTML = '<div class="lrc-content">' + data.replace(/</g, '&lt;') + '</div>';
           mediaBox.classList.add('show');
         } else {
-          const resp = await fetch(url, { credentials: 'include' });
+          const resp = await fetch(url);
           const data = await resp.text();
 
           try {

@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meting Player</title>
+    <link rel="icon" href="https://meting.503555.xyz/docs/netease.png">
+    <link href="https://fonts.loli.net/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #ef4444;
+            --primary-dark: #dc2626;
+            --secondary: #8b5cf6;
+        }
+        * { font-family: 'Inter', system-ui, -apple-system, sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: radial-gradient(ellipse at top, #1e1b4b 0%, #0f172a 40%, #0a0a0f 100%); min-height: 100vh; color: #fff; overflow-x: hidden; position: relative; }
+        .container { position: relative; z-index: 10; max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        .hero { text-align: center; padding: 80px 20px 40px; }
+        .hero h1 { font-size: 3rem; font-weight: 800; margin-bottom: 16px; background: linear-gradient(135deg, #fff 0%, #fca5a5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero p { color: rgba(255,255,255,0.6); margin-bottom: 32px; }
+        .input-group { display: flex; justify-content: center; gap: 12px; margin-bottom: 40px; flex-wrap: wrap; }
+        .input-group input { padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; min-width: 260px; outline: none; transition: all 0.3s; }
+        .input-group input:focus { border-color: #ef4444; background: rgba(255,255,255,0.08); }
+        .btn-load { padding: 12px 28px; border-radius: 12px; border: none; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .btn-load:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(239,68,68,0.4); }
+        
+        /* 修复未引入 Tailwind 导致的图标尺寸问题 */
+        .hidden { display: none !important; }
+        .w-4 { width: 1rem; height: 1rem; }
+        .h-4 { width: 1rem; height: 1rem; }
+        .w-5 { width: 1.25rem; height: 1.25rem; }
+        .h-5 { width: 1.25rem; height: 1.25rem; }
+
+        /* 背景动画 Canvas 与光斑 */
+        #hero-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        #viz-canvas { 
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 100px; 
+            z-index: 1; pointer-events: none; 
+            mask-image: linear-gradient(to top, black 0%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to top, black 0%, transparent 100%);
+        }
+        .orb { position: fixed; border-radius: 50%; filter: blur(80px); z-index: 0; pointer-events: none; transition: filter 0.1s ease-out, transform 0.1s ease-out; }
+        .orb-1 { width: 300px; height: 300px; background: rgba(239, 68, 68, 0.2); top: 20%; left: 10%; animation: drift 15s infinite alternate-reverse; }
+        .orb-2 { width: 400px; height: 400px; background: rgba(139, 92, 246, 0.15); bottom: 10%; right: 5%; animation: drift 20s infinite alternate; }
+        @keyframes drift { 0% { transform: translate(0, 0); } 100% { transform: translate(50px, -30px); } }
+
+        /* 高级音乐播放器样式 */
+        #player-zone { position: relative; z-index: 100; max-width: 340px; margin: 0 auto; }
+        #music-player {
+            background: rgba(20, 20, 30, 0.8); backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px;
+            padding: 12px 16px; width: 100%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        .player-header { display: flex; align-items: center; gap: 10px; }
+        .player-cover { width: 40px; height: 40px; border-radius: 8px; background-size: cover; background-position: center; background-color: #333; flex-shrink: 0; }
+        .player-main { flex: 1; min-width: 0; }
+        .player-title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+        .player-artist { font-size: 10px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+        .player-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .ctrl-btn { background: transparent; border: none; color: #aaa; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s; }
+        .ctrl-btn:hover { color: #fff; }
+        .play-btn { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff !important; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3); }
+        .player-progress { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+        .time-text { font-size: 10px; color: #888; width: 28px; text-align: center; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+        .seek-bar { -webkit-appearance: none; appearance: none; flex: 1; height: 4px; background: rgba(255, 255, 255, 0.15); border-radius: 2px; cursor: pointer; outline: none; transition: height 0.2s; }
+        .seek-bar:hover { height: 6px; }
+        .seek-bar::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 10px; height: 10px; border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 0 6px rgba(239, 68, 68, 0.8); transition: transform 0.2s; }
+        .seek-bar:hover::-webkit-slider-thumb { transform: scale(1.4); }
+        .seek-bar::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: #fff; cursor: pointer; border: none; box-shadow: 0 0 6px rgba(239, 68, 68, 0.8); }
+        
+        .view-container { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, margin-top 0.4s ease; position: relative; }
+        .view-container.show { max-height: 240px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px; }
+        .playlist-view { max-height: 240px; overflow-y: auto; }
+        .playlist-view::-webkit-scrollbar { width: 4px; }
+        .playlist-view::-webkit-scrollbar-track { background: transparent; }
+        .playlist-view::-webkit-scrollbar-thumb { background: rgba(239, 68, 68, 0.5); border-radius: 10px; }
+        .playlist-item { padding: 8px 10px; border-radius: 6px; font-size: 12px; color: #aaa; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
+        .playlist-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .playlist-item.active { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+        .playlist-item span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+
+        .lyric-view { height: 72px; overflow: hidden; position: relative; display: block; }
+        .lyric-list { position: absolute; top: 0; left: 0; width: 100%; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); will-change: transform; }
+        .lyric-item { height: 24px; line-height: 24px; padding: 0 10px; font-size: 12px; color: #999; text-align: center; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.5; transform: scale(0.85); filter: blur(1px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .lyric-item.active { color: #fff; font-weight: 600; opacity: 1; transform: scale(1); filter: blur(0); }
+        .lyric-item.near { color: #ccc; opacity: 0.8; transform: scale(0.9); filter: blur(0.5px); }
+        
+        @media (max-width: 480px) {
+            #music-player { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景动画层 -->
+    <canvas id="hero-canvas"></canvas>
+    <canvas id="viz-canvas"></canvas>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+
+    <div class="container">
+        <div class="hero">
+            <h1>Meting Player</h1>
+            <p>基于 Meting API 的在线音乐播放器，输入歌单 ID 即可播放</p>
+            <div class="input-group">
+                <input type="text" id="playlistId" value="17987598379" placeholder="输入歌单 ID">
+                <button class="btn-load" onclick="loadPlaylist()">加载歌单</button>
+            </div>
+
+            <!-- 播放器移至此处 -->
+            <div id="player-zone">
+                <div id="music-player">
+                    <div class="player-header">
+                        <div id="player-cover" class="player-cover"></div>
+                        <div class="player-main">
+                            <div id="player-title" class="player-title">加载中...</div>
+                            <div id="player-artist" class="player-artist">-</div>
+                        </div>
+                        <div class="player-controls">
+                            <button id="list-btn" class="ctrl-btn" title="歌单">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                            </button>
+                            <button id="lyric-btn" class="ctrl-btn" title="歌词">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
+                            </button>
+                            <button id="prev-btn" class="ctrl-btn">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                            </button>
+                            <button id="play-btn" class="ctrl-btn play-btn">
+                                <svg id="icon-play" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                <svg id="icon-pause" class="w-4 h-4 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                            </button>
+                            <button id="next-btn" class="ctrl-btn">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="player-progress">
+                        <span id="current-time" class="time-text">0:00</span>
+                        <input type="range" id="seek-bar" class="seek-bar" value="0" max="100" min="0">
+                        <span id="duration-time" class="time-text">0:00</span>
+                    </div>
+                    <div id="view-container" class="view-container">
+                        <div id="playlist-view" class="playlist-view hidden"></div>
+                        <div id="lyric-view" class="lyric-view hidden">
+                            <div id="lyric-list" class="lyric-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <audio id="audio-player" preload="auto" crossorigin="anonymous"></audio>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let audioCtx = null;
+        let analyser = null;
+        let dataArray = null;
+        let sourceNode = null;
+        let isAudioCtxReady = false;
+        let isPlaying = false; // 修复：补充缺失的 isPlaying 变量
+
+        function initAudioContext() {
+            if (isAudioCtxReady) return;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 1024; 
+                analyser.smoothingTimeConstant = 0.8; 
+                const audioEl = document.getElementById('audio-player');
+                sourceNode = audioCtx.createMediaElementSource(audioEl);
+                sourceNode.connect(analyser);
+                analyser.connect(audioCtx.destination);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                isAudioCtxReady = true;
+            } catch (e) {
+                console.warn("AudioContext 初始化失败(可能跨域):", e);
+                isAudioCtxReady = false;
+                dataArray = new Uint8Array(512); 
+            }
+        }
+
+        // 严格采用您提供的版本，并移除模拟数据降级，防止没出声就乱动
+        function getAudioDataArray() {
+            if (isAudioCtxReady && analyser) {
+                analyser.getByteFrequencyData(dataArray);
+                return dataArray;
+            } else {
+                // 无法读取真实音频数据时返回全0，保持画面静止
+                return new Uint8Array(512); 
+            }
+        }
+
+        const canvas = document.getElementById('hero-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let currentLevel = 0; 
+        let flashLevel = 0;   
+        let lastEnergy = 0;   
+        let lastBeatTime = 0; 
+        
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.vx = (Math.random() - 0.5) * 0.8; // 提高初始速度
+                this.vy = (Math.random() - 0.5) * 0.8;
+                this.baseSize = Math.random() * 1.5 + 0.5;
+                this.size = this.baseSize;
+                this.phase = Math.random() * Math.PI * 2; // 呼吸相位
+            }
+            update(level, flash) {
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                this.vx *= 0.99; // 减小阻尼，让基础运动更顺滑持久
+                this.vy *= 0.99;
+                this.vx += (Math.random() - 0.5) * 0.1; // 增加基础推力
+                this.vy += (Math.random() - 0.5) * 0.1;
+
+                // 限制最大速度，防止节拍爆发时飞出失控
+                const maxSpeed = 2.5 + level * 6 + flash * 4;
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed > maxSpeed) {
+                    this.vx = (this.vx / speed) * maxSpeed;
+                    this.vy = (this.vy / speed) * maxSpeed;
+                }
+
+                if (this.x < 0 || this.x > canvas.width) {
+                    this.vx *= -1;
+                    this.x = Math.max(0, Math.min(canvas.width, this.x));
+                }
+                if (this.y < 0 || this.y > canvas.height) {
+                    this.vy *= -1;
+                    this.y = Math.max(0, Math.min(canvas.height, this.y));
+                }
+                
+                // 大小与透明度加入基础呼吸效果
+                this.phase += 0.03;
+                const breath = Math.sin(this.phase) * 0.6;
+                this.size = Math.max(0.5, this.baseSize + breath + level * 2 + flash * 6);
+            }
+            draw(level, flash) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, Math.max(0.5, this.size), 0, Math.PI * 2);
+                const breathAlpha = (Math.sin(this.phase) + 1) * 0.1; // 0 ~ 0.2 的基础透明度浮动
+                const a = 0.3 + breathAlpha + flash * 0.7;
+                ctx.fillStyle = `rgba(239, 68, 68, ${a})`;
+                if (flash > 0.1) {
+                    ctx.shadowBlur = flash * 25;
+                    ctx.shadowColor = 'rgba(239, 68, 68, 0.9)';
+                } else {
+                    ctx.shadowBlur = level * 5 + 3; // 增加基础微光
+                    ctx.shadowColor = 'rgba(239, 68, 68, 0.5)';
+                }
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            const count = Math.floor((canvas.width * canvas.height) / 20000);
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function connectParticles(level, flash) {
+            let maxDist = 120 + level * 40 + flash * 60; // 基础连线距离稍微加大
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    let dx = particles[i].x - particles[j].x;
+                    let dy = particles[i].y - particles[j].y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < maxDist) {
+                        ctx.beginPath();
+                        const opacity = (1 - dist / maxDist) * (0.05 + level * 0.3 + flash * 0.5); // 加入基础透明度
+                        ctx.strokeStyle = `rgba(139, 92, 246, ${opacity})`;
+                        ctx.lineWidth = 0.5 + flash * 2;
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function checkBeat(currentEnergy) {
+            const now = performance.now();
+            if (now - lastBeatTime < 100) return false; 
+            if (currentEnergy > lastEnergy * 1.2 && currentEnergy > 0.1) {
+                lastBeatTime = now;
+                return true;
+            }
+            return false;
+        }
+
+        function animateParticles() {
+            let targetLevel = 0;
+            if (isPlaying) {
+                const data = getAudioDataArray();
+                let sum = 0;
+                for(let i=0; i<data.length; i++) sum += data[i];
+                let currentEnergy = (sum / data.length) / 255; 
+                targetLevel = currentEnergy;
+                if (checkBeat(currentEnergy)) {
+                    flashLevel = 1.0; 
+                    particles.forEach(p => {
+                        p.vx += (Math.random() - 0.5) * 8;
+                        p.vy += (Math.random() - 0.5) * 8;
+                    });
+                }
+                lastEnergy = currentEnergy;
+            }
+            
+            currentLevel += (targetLevel - currentLevel) * 0.2;
+            flashLevel *= 0.9; 
+            
+            const orb1 = document.querySelector('.orb-1');
+            const orb2 = document.querySelector('.orb-2');
+            const brightness = 1 + currentLevel * 0.8 + flashLevel * 2;
+            const blur = 80 - currentLevel * 10 - flashLevel * 30;
+            if (orb1) orb1.style.filter = `brightness(${brightness}) blur(${blur}px)`;
+            if (orb2) orb2.style.filter = `brightness(${brightness}) blur(${blur}px)`;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => { p.update(currentLevel, flashLevel); p.draw(currentLevel, flashLevel); });
+            connectParticles(currentLevel, flashLevel);
+            requestAnimationFrame(animateParticles);
+        }
+
+        const vizCanvas = document.getElementById('viz-canvas');
+        const vizCtx = vizCanvas.getContext('2d');
+        
+        function resizeVizCanvas() {
+            vizCanvas.width = vizCanvas.offsetWidth;
+            vizCanvas.height = 100; 
+        }
+
+        function drawViz() {
+            const w = vizCanvas.width;
+            const h = vizCanvas.height;
+            vizCtx.clearRect(0, 0, w, h);
+
+            const mmToPx = 3.78;
+            const barWidth = 3 * mmToPx; 
+            const minGap = 1 * mmToPx;   
+            
+            let bars = Math.floor(w / (barWidth + minGap));
+            if (bars < 1) bars = 1;
+            
+            let gapWidth = bars > 1 ? (w - bars * barWidth) / (bars - 1) : 0;
+            const totalUnit = barWidth + gapWidth;
+            const data = getAudioDataArray();
+
+            for (let i = 0; i < bars; i++) {
+                let dataIndex = Math.floor(i / bars * (data.length * 0.7));
+                let val = data[dataIndex] / 255;
+                let barHeight = val * h * 0.95;
+                
+                let x = i * totalUnit;
+                let y = h - barHeight;
+                
+                let gradient = vizCtx.createLinearGradient(0, y, 0, h);
+                gradient.addColorStop(0, "rgba(239, 68, 68, 0.9)");
+                gradient.addColorStop(0.5, "rgba(139, 92, 246, 0.6)");
+                gradient.addColorStop(1, "rgba(139, 92, 246, 0.1)");
+                vizCtx.fillStyle = gradient;
+                
+                if (barHeight > 0) {
+                    vizCtx.fillRect(x, y, barWidth, barHeight); 
+                }
+            }
+            requestAnimationFrame(drawViz);
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            initParticles();
+            resizeVizCanvas();
+        });
+
+        resizeCanvas();
+        initParticles();
+        resizeVizCanvas();
+        animateParticles();
+        drawViz();
+
+        // ================= 播放器核心逻辑 =================
+        const playerCover = document.getElementById('player-cover');
+        const playerTitle = document.getElementById('player-title');
+        const playerArtist = document.getElementById('player-artist');
+        const currentTimeEl = document.getElementById('current-time');
+        const durationTimeEl = document.getElementById('duration-time');
+        const seekBar = document.getElementById('seek-bar');
+        const playBtn = document.getElementById('play-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const listBtn = document.getElementById('list-btn');
+        const lyricBtn = document.getElementById('lyric-btn');
+        const playlistView = document.getElementById('playlist-view');
+        const lyricView = document.getElementById('lyric-view');
+        const lyricList = document.getElementById('lyric-list');
+        const viewContainer = document.getElementById('view-container');
+        const iconPlay = document.getElementById('icon-play');
+        const iconPause = document.getElementById('icon-pause');
+        const activeAudio = document.getElementById('audio-player');
+        
+        let playlist = [];
+        let currentLyrics = [];
+        let currentLyricIndex = -1;
+        let currentIndex = 0;
+        let isSeeking = false;
+        let currentView = '';
+        let userInteracted = false;
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "0:00";
+            const min = Math.floor(seconds / 60);
+            const sec = Math.floor(seconds % 60);
+            return `${min}:${sec < 10 ? '0' + sec : sec}`;
+        }
+
+        function updateSeekBarStyle() {
+            const val = (seekBar.value - seekBar.min) / (seekBar.max - seekBar.min) * 100;
+            seekBar.style.background = `linear-gradient(to right, #ef4444 ${val}%, rgba(255, 255, 255, 0.15) ${val}%)`;
+        }
+
+        function parseLyric(lrc) {
+            const lyrics = [];
+            if (!lrc) return lyrics;
+            const lines = lrc.split('\n');
+            const regex = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
+            for (let line of lines) {
+                const matches = [...line.matchAll(regex)];
+                const text = line.replace(regex, '').trim();
+                if (matches.length > 0 && text) {
+                    for (let match of matches) {
+                        const min = parseInt(match[1]);
+                        const sec = parseInt(match[2]);
+                        const ms = match[3] ? parseInt(match[3].padEnd(3, '0')) : 0;
+                        const time = min * 60 + sec + ms / 1000;
+                        lyrics.push({ time, text });
+                    }
+                }
+            }
+            return lyrics.sort((a, b) => a.time - b.time);
+        }
+
+        function loadSong(index) {
+            if (index >= playlist.length) index = 0;
+            if (index < 0) index = playlist.length - 1;
+            
+            const song = playlist[index];
+            currentIndex = index;
+            
+            playerTitle.textContent = song.name || '未知歌曲';
+            playerArtist.textContent = song.artist || '未知艺术家';
+            playerCover.style.backgroundImage = `url('${song.pic}')`;
+            activeAudio.src = song.url;
+            activeAudio.load();
+            
+            seekBar.value = 0;
+            currentTimeEl.textContent = '0:00';
+            durationTimeEl.textContent = '0:00';
+            updateSeekBarStyle();
+            
+            currentLyrics = [];
+            currentLyricIndex = -1;
+            lyricList.innerHTML = '<div class="lyric-item active">歌词加载中...</div>';
+            updatePlaylistActive();
+
+            fetch(song.lrc).then(res => res.ok ? res.text() : '').then(lrc => {
+                if (currentIndex === index) {
+                    currentLyrics = parseLyric(lrc);
+                    renderLyrics();
+                }
+            }).catch(() => {
+                if (currentIndex === index) {
+                    lyricList.innerHTML = '<div class="lyric-item active">暂无歌词</div>';
+                }
+            });
+        }
+
+        function playSong() {
+            isPlaying = true;
+            iconPlay.classList.add('hidden');
+            iconPause.classList.remove('hidden');
+            
+            if (!isAudioCtxReady) initAudioContext();
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const playPromise = activeAudio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    isPlaying = false;
+                    iconPlay.classList.remove('hidden');
+                    iconPause.classList.add('hidden');
+                    
+                    const resumePlay = () => {
+                        if (userInteracted) return;
+                        userInteracted = true;
+                        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                        activeAudio.play().then(() => {
+                            isPlaying = true;
+                            iconPlay.classList.add('hidden');
+                            iconPause.classList.remove('hidden');
+                        }).catch(e => console.log("依然无法播放", e));
+                        document.removeEventListener('click', resumePlay);
+                        document.removeEventListener('scroll', resumePlay);
+                        document.removeEventListener('keydown', resumePlay);
+                        document.removeEventListener('touchstart', resumePlay);
+                    };
+                    document.addEventListener('click', resumePlay);
+                    document.addEventListener('scroll', resumePlay);
+                    document.addEventListener('keydown', resumePlay);
+                    document.addEventListener('touchstart', resumePlay);
+                });
+            }
+        }
+
+        function pauseSong() {
+            isPlaying = false;
+            iconPause.classList.add('hidden');
+            iconPlay.classList.remove('hidden');
+            activeAudio.pause();
+        }
+
+        activeAudio.addEventListener('ended', () => manualSwitch(1));
+
+        activeAudio.addEventListener('timeupdate', () => {
+            if (activeAudio.duration && !isSeeking) {
+                const percent = (activeAudio.currentTime / activeAudio.duration) * 100;
+                seekBar.value = percent;
+                updateSeekBarStyle();
+                currentTimeEl.textContent = formatTime(activeAudio.currentTime);
+                durationTimeEl.textContent = formatTime(activeAudio.duration);
+                
+                if (currentLyrics.length > 0) {
+                    let index = -1;
+                    for (let i = 0; i < currentLyrics.length; i++) {
+                        if (activeAudio.currentTime >= currentLyrics[i].time) {
+                            index = i;
+                        } else { break; }
+                    }
+                    if (index !== currentLyricIndex && index !== -1) {
+                        currentLyricIndex = index;
+                        updateLyricView();
+                    }
+                }
+            }
+        });
+
+        activeAudio.addEventListener('loadedmetadata', () => {
+            durationTimeEl.textContent = formatTime(activeAudio.duration);
+        });
+
+        seekBar.addEventListener('input', (e) => {
+            isSeeking = true;
+            if (activeAudio.duration) {
+                const time = (e.target.value / 100) * activeAudio.duration;
+                currentTimeEl.textContent = formatTime(time);
+                updateSeekBarStyle();
+            }
+        });
+
+        seekBar.addEventListener('change', (e) => {
+            if (activeAudio.duration) {
+                activeAudio.currentTime = (e.target.value / 100) * activeAudio.duration;
+            }
+            isSeeking = false;
+        });
+
+        playBtn.addEventListener('click', () => { isPlaying ? pauseSong() : playSong(); });
+
+        function manualSwitch(direction) {
+            const newIndex = (currentIndex + direction + playlist.length) % playlist.length;
+            loadSong(newIndex);
+            if (isPlaying) playSong();
+        }
+
+        nextBtn.addEventListener('click', () => manualSwitch(1));
+        prevBtn.addEventListener('click', () => manualSwitch(-1));
+
+        function toggleView(type) {
+            if (type === 'list') {
+                playlistView.classList.remove('hidden');
+                lyricView.classList.add('hidden');
+            } else {
+                playlistView.classList.add('hidden');
+                lyricView.classList.remove('hidden');
+            }
+            
+            if (currentView === type) {
+                viewContainer.classList.remove('show');
+                currentView = '';
+            } else {
+                viewContainer.classList.add('show');
+                currentView = type;
+            }
+        }
+
+        listBtn.addEventListener('click', () => toggleView('list'));
+        lyricBtn.addEventListener('click', () => toggleView('lyric'));
+
+        function renderPlaylist() {
+            playlistView.innerHTML = '';
+            playlist.forEach((song, index) => {
+                const item = document.createElement('div');
+                item.className = 'playlist-item';
+                if (index === currentIndex) item.classList.add('active');
+                item.innerHTML = `<span>${index + 1}. ${song.name}</span><span>${song.artist}</span>`;
+                item.addEventListener('click', () => {
+                    if (index !== currentIndex) manualSwitch(index - currentIndex);
+                    viewContainer.classList.remove('show');
+                    currentView = '';
+                });
+                playlistView.appendChild(item);
+            });
+        }
+
+        function renderLyrics() {
+            lyricList.innerHTML = '';
+            if (currentLyrics.length === 0) {
+                lyricList.innerHTML = '<div class="lyric-item active">暂无歌词</div>';
+                return;
+            }
+            currentLyrics.forEach(lyric => {
+                const item = document.createElement('div');
+                item.className = 'lyric-item';
+                item.textContent = lyric.text;
+                lyricList.appendChild(item);
+            });
+            updateLyricView();
+        }
+
+        function updateLyricView() {
+            const items = lyricList.querySelectorAll('.lyric-item');
+            if (!items.length || currentLyricIndex === -1) return;
+            
+            const activeEl = items[currentLyricIndex];
+            if (!activeEl) return;
+
+            const offsetTop = activeEl.offsetTop;
+            const itemHeight = 24; 
+            const containerHeight = 72;
+            const translateY = (containerHeight / 2) - (offsetTop + itemHeight / 2);
+            
+            lyricList.style.transform = `translateY(${translateY}px)`;
+            
+            items.forEach((el, i) => {
+                el.classList.remove('active', 'near');
+                const distance = Math.abs(i - currentLyricIndex);
+                if (distance === 0) {
+                    el.classList.add('active');
+                } else if (distance === 1) {
+                    el.classList.add('near');
+                }
+            });
+        }
+
+        function updatePlaylistActive() {
+            document.querySelectorAll('.playlist-item').forEach((el, i) => {
+                el.classList.toggle('active', i === currentIndex);
+            });
+        }
+
+        async function initPlayer(playlistId) {
+            const metingApiUrl = window.location.origin + '/meting/?type=playlist&id=' + playlistId;
+            try {
+                const response = await fetch(metingApiUrl);
+                if (!response.ok) throw new Error('Network response was not ok');
+                playlist = await response.json();
+                
+                if (playlist.length > 0) {
+                    loadSong(0);
+                    renderPlaylist();
+                }
+            } catch (error) {
+                playerTitle.textContent = '播放器加载失败';
+                playerArtist.textContent = '请检查网络';
+            }
+            updateSeekBarStyle();
+        }
+
+        initPlayer(document.getElementById('playlistId').value || '17987598379');
+    
+        function loadPlaylist() {
+            const id = document.getElementById('playlistId').value || '17987598379';
+            initPlayer(id);
+        }
+    </script>
+</body>
+</html>

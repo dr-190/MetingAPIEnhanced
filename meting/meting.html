@@ -336,7 +336,7 @@
   <div class="container">
     <div class="header">
       <h1>Meting API 测试页</h1>
-      <p>兼容 injahow/meting-api 协议 · 支持在线试听/预览 · 基于 api-enhanced v4.40.0</p>
+      <p>兼容 injahow/meting-api 协议 · 支持在线试听/预览 · 基于 api-enhanced v4.41.0</p>
     </div>
 
     <!-- 快速测试 -->
@@ -367,9 +367,21 @@
           <div class="title">歌手</div>
           <div class="desc">type=artist&id=32507038</div>
         </button>
-        <button class="quick-test-btn" onclick="quickTest('url', {id: '3407451664', br: '320'})">
+        <button class="quick-test-btn" onclick="quickTest('url', {id: '3407451664', quality: 'br:320'})">
           <div class="title">播放链接</div>
-          <div class="desc">type=url&id=3407451664</div>
+          <div class="desc">type=url&id=3407451664&br=320</div>
+        </button>
+        <button class="quick-test-btn" onclick="quickTest('url', {id: '3407451664', quality: 'level:lossless'})">
+          <div class="title">无损音质</div>
+          <div class="desc">type=url&level=lossless</div>
+        </button>
+        <button class="quick-test-btn" onclick="quickTest('url', {id: '3407451664', quality: 'level:vivid'})">
+          <div class="title">臻音全景声</div>
+          <div class="desc">type=url&level=vivid</div>
+        </button>
+        <button class="quick-test-btn" onclick="quickTest('url', {id: '3407451664', quality: 'level:sky'})">
+          <div class="title">沉浸环绕声</div>
+          <div class="desc">type=url&level=sky</div>
         </button>
         <button class="quick-test-btn" onclick="quickTest('pic', {id: '3407451664', cover: '300'})">
           <div class="title">封面图</div>
@@ -403,12 +415,36 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>音质 (br)</label>
-            <select id="testBr">
-              <option value="128">128 kbps</option>
-              <option value="192">192 kbps</option>
-              <option value="320" selected>320 kbps</option>
-              <option value="2000">FLAC 无损</option>
+            <label>音质</label>
+            <select id="testQuality">
+              <optgroup label="Meting 协议 (br)">
+                <option value="br:128">128 kbps</option>
+                <option value="br:192">192 kbps</option>
+                <option value="br:320" selected>320 kbps</option>
+                <option value="br:2000">FLAC 无损</option>
+              </optgroup>
+              <optgroup label="api-enhanced 音质等级 (level)">
+                <option value="level:standard">standard - 标准</option>
+                <option value="level:higher">higher - 较高</option>
+                <option value="level:exhigh">exhigh - 极高 320k</option>
+                <option value="level:lossless">lossless - 无损 FLAC</option>
+                <option value="level:hires">hires - Hi-Res</option>
+                <option value="level:jyeffect">jyeffect - 高清臻音</option>
+                <option value="level:vivid">vivid - 臻音全景声</option>
+                <option value="level:jymaster">jymaster - 超清母带</option>
+                <option value="level:sky">sky - 沉浸环绕声</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-group" id="immerseGroup" style="display:none">
+            <label>沉浸声类型 (immerseType)</label>
+            <select id="testImmerseType">
+              <option value="c51" selected>c51 - 环绕声</option>
+              <option value="ste">ste - 立体声</option>
+              <option value="aac">aac - AAC</option>
+              <option value="c512">c512 - 新版环绕声</option>
+              <option value="ste2">ste2 - 新版立体声</option>
+              <option value="aac2">aac2 - 新版 AAC</option>
             </select>
           </div>
           <div class="form-group">
@@ -465,7 +501,21 @@
           </tr>
           <tr>
             <td style="padding: 10px; border-bottom: 1px solid #eee;"><code>br</code></td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee;">音质（仅 type=url，默认 320，可选 2000/flac/192/128）</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;">Meting 协议音质（仅 type=url，默认 320，可选 2000/192/128）</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;"><code>level</code></td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;">
+              api-enhanced 音质等级（仅 type=url，优先级高于 br）：<br>
+              <code>standard</code>｜<code>higher</code>｜<code>exhigh</code>｜<code>lossless</code>｜<code>hires</code>｜<code>jyeffect</code>｜<code>vivid</code>｜<code>jymaster</code>｜<code>sky</code>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;"><code>immerseType</code></td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;">
+              沉浸声类型（仅 <code>level=sky</code> 时生效，默认 c51）：<br>
+              <code>c51</code>｜<code>ste</code>｜<code>aac</code>｜<code>c512</code>｜<code>ste2</code>｜<code>aac2</code>
+            </td>
           </tr>
           <tr>
             <td style="padding: 10px; border-bottom: 1px solid #eee;"><code>cover</code></td>
@@ -502,7 +552,22 @@
         <div class="endpoint">
           <span class="method">GET</span>
           <span class="url">/meting/?type=url&id=歌曲ID&br=320</span>
-          <div class="desc">获取播放链接，302 重定向</div>
+          <div class="desc">获取播放链接，302 重定向（Meting 协议音质）</div>
+        </div>
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="url">/meting/?type=url&id=歌曲ID&level=lossless</span>
+          <div class="desc">按 api-enhanced 音质等级获取播放链接（v4.41.0）</div>
+        </div>
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="url">/meting/?type=url&id=歌曲ID&level=vivid</span>
+          <div class="desc">臻音全景声（v4.41.0 新增，返回 av3a 格式）</div>
+        </div>
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="url">/meting/?type=url&id=歌曲ID&level=sky&immerseType=c512</span>
+          <div class="desc">沉浸环绕声，可指定沉浸声类型（v4.41.0）</div>
         </div>
         <div class="endpoint">
           <span class="method">GET</span>
@@ -635,31 +700,47 @@
     function quickTest(type, params) {
       document.getElementById('testType').value = type;
       document.getElementById('testId').value = params.id || '';
-      if (params.br) document.getElementById('testBr').value = params.br;
+      if (params.quality) document.getElementById('testQuality').value = params.quality;
       if (params.cover) document.getElementById('testCover').value = params.cover;
       if (params.limit) document.getElementById('testLimit').value = params.limit;
+      document.getElementById('testType').dispatchEvent(new Event('change'));
       runTest();
+    }
+
+    // 解析音质选择值：'br:320' → {br:'320'}；'level:vivid' → {level:'vivid'}
+    function parseQuality() {
+      const raw = document.getElementById('testQuality').value;
+      const idx = raw.indexOf(':');
+      const kind = raw.slice(0, idx);
+      const value = raw.slice(idx + 1);
+      if (kind === 'level') {
+        const out = { level: value };
+        if (value === 'sky') {
+          const it = document.getElementById('testImmerseType').value;
+          if (it) out.immerseType = it;
+        }
+        return out;
+      }
+      return { br: value };
     }
 
     // 构建 URL
     function buildUrl() {
       const type = document.getElementById('testType').value;
       const id = document.getElementById('testId').value;
-      const br = document.getElementById('testBr').value;
       const cover = document.getElementById('testCover').value;
       const limit = document.getElementById('testLimit').value;
 
       const params = new URLSearchParams({ type });
 
       if (id) {
-        if (type === 'search') {
-          params.set('id', id);
-        } else {
-          params.set('id', id);
-        }
+        params.set('id', id);
       }
 
-      if (type === 'url') params.set('br', br);
+      if (type === 'url') {
+        const q = parseQuality();
+        for (const k of Object.keys(q)) params.set(k, q[k]);
+      }
       if (type === 'pic') params.set('cover', cover);
       if (type === 'search') params.set('limit', limit);
 
@@ -785,16 +866,28 @@
       container.appendChild(metingJs);
     }
 
+    // 音质选择变化时，sky 需显示沉浸声类型
+    function syncImmerseVisibility() {
+      const raw = document.getElementById('testQuality').value;
+      const isSky = raw === 'level:sky';
+      const immerseGroup = document.getElementById('immerseGroup');
+      immerseGroup.style.display = isSky ? 'block' : 'none';
+    }
+
+    document.getElementById('testQuality').addEventListener('change', syncImmerseVisibility);
+
     // 类型变化时更新 UI
     document.getElementById('testType').addEventListener('change', function() {
       const type = this.value;
-      const brGroup = document.getElementById('testBr').closest('.form-group');
+      const qualityGroup = document.getElementById('testQuality').closest('.form-group');
       const coverGroup = document.getElementById('testCover').closest('.form-group');
       const limitGroup = document.getElementById('testLimit').closest('.form-group');
 
-      brGroup.style.display = type === 'url' ? 'block' : 'none';
+      const isUrl = type === 'url';
+      qualityGroup.style.display = isUrl ? 'block' : 'none';
       coverGroup.style.display = type === 'pic' ? 'block' : 'none';
       limitGroup.style.display = type === 'search' ? 'block' : 'none';
+      syncImmerseVisibility();
 
       // 更新 placeholder
       const idInput = document.getElementById('testId');

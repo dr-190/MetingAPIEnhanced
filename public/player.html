@@ -21,6 +21,9 @@
         .input-group { display: flex; justify-content: center; gap: 12px; margin-bottom: 40px; flex-wrap: wrap; }
         .input-group input { padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; min-width: 260px; outline: none; transition: all 0.3s; }
         .input-group input:focus { border-color: #ef4444; background: rgba(255,255,255,0.08); }
+        .input-group select { padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; min-width: 260px; outline: none; cursor: pointer; transition: all 0.3s; appearance: none; -webkit-appearance: none; }
+        .input-group select:focus { border-color: #ef4444; background: rgba(255,255,255,0.08); }
+        .input-group select option { background: #1a1a1a; color: #fff; }
         .btn-load { padding: 12px 28px; border-radius: 12px; border: none; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.3s; }
         .btn-load:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(239,68,68,0.4); }
         
@@ -103,8 +106,23 @@
             <h1>Meting Player</h1>
             <p>基于 Meting API 的在线音乐播放器，输入歌单 ID 即可播放</p>
             <div class="input-group">
-                <input type="text" id="playlistId" value="17987598379" placeholder="输入歌单 ID">
+                <input type="text" id="playlistId" value="19723756" placeholder="输入歌单 ID">
                 <button class="btn-load" onclick="loadPlaylist()">加载歌单</button>
+            </div>
+            <div class="input-group" style="margin-top: 8px;">
+                <select id="quality-select" onchange="onQualityChange()" title="音质">
+                    <option value="br:320" selected>音质：320 kbps</option>
+                    <option value="br:2000">音质：无损 FLAC</option>
+                    <option value="level:standard">level：standard 标准</option>
+                    <option value="level:higher">level：higher 较高</option>
+                    <option value="level:exhigh">level：exhigh 极高</option>
+                    <option value="level:lossless">level：lossless 无损</option>
+                    <option value="level:hires">level：hires Hi-Res</option>
+                    <option value="level:jyeffect">level：jyeffect 高清臻音</option>
+                    <option value="level:vivid">level：vivid 臻音全景声</option>
+                    <option value="level:jymaster">level：jymaster 超清母带</option>
+                    <option value="level:sky">level：sky 沉浸环绕声</option>
+                </select>
             </div>
 
             <!-- 播放器移至此处 -->
@@ -420,6 +438,69 @@
         let currentView = '';
         let userInteracted = false;
 
+        // 音质选择的唯一数据源就是 DOM 选择器，避免闭包变量与声明顺序耦合
+        const DEFAULT_QUALITY = 'br:320';
+        function getQuality() {
+            const sel = document.getElementById('quality-select');
+            return (sel && sel.value) || DEFAULT_QUALITY;
+        }
+
+        // 将音质选择应用到 meting 播放链接上
+        // 原始链接形如 /meting/?type=url&server=netease&id=123&br=320
+        function applyQuality(url) {
+            if (!url) return url;
+            const quality = getQuality();
+            const idx = quality.indexOf(':');
+            const kind = quality.slice(0, idx);
+            const value = quality.slice(idx + 1);
+
+            try {
+                const u = new URL(url, window.location.origin);
+                // 移除互斥参数，避免 br 与 level 同时存在
+                u.searchParams.delete('br');
+                u.searchParams.delete('level');
+                u.searchParams.delete('immerseType');
+                u.searchParams.set(kind, value);
+                if (kind === 'level' && value === 'sky') {
+                    u.searchParams.set('immerseType', 'c51');
+                }
+                return u.toString();
+            } catch (e) {
+                // 解析失败时回退到字符串替换
+                let out = url.replace(/([?&])(br|level|immerseType)=[^&]*/g, '$1').replace(/[?&]$/, '');
+                out += (out.includes('?') ? '&' : '?') + kind + '=' + encodeURIComponent(value);
+                return out;
+            }
+        }
+
+        // 音质切换：重新加载当前歌曲并保持播放进度
+        function onQualityChange() {
+            // 由内联 onchange 触发，可能在脚本初始化完成前被调用。
+            // 注意：let 声明的变量在 TDZ 中即使 typeof 也会抛错，故用 try/catch 兜底。
+            let list;
+            try {
+                list = playlist;
+            } catch (e) {
+                return;
+            }
+            if (!Array.isArray(list) || !list.length) return;
+
+            // 同步已加载歌单中每首歌的 url，切歌时也使用新音质
+            playlist.forEach(song => {
+                if (song._rawUrl) song.url = applyQuality(song._rawUrl);
+            });
+
+            const wasPlaying = isPlaying;
+            const lastTime = activeAudio.currentTime || 0;
+            loadSong(currentIndex);
+            const applyTime = () => {
+                try { activeAudio.currentTime = lastTime; } catch (e) {}
+                activeAudio.removeEventListener('loadedmetadata', applyTime);
+            };
+            activeAudio.addEventListener('loadedmetadata', applyTime);
+            if (wasPlaying) playSong();
+        }
+
         function formatTime(seconds) {
             if (isNaN(seconds)) return "0:00";
             const min = Math.floor(seconds / 60);
@@ -679,7 +760,13 @@
                 const response = await fetch(metingApiUrl);
                 if (!response.ok) throw new Error('Network response was not ok');
                 playlist = await response.json();
-                
+
+                // 保留原始链接，并按当前音质设置改写播放链接
+                playlist.forEach(song => {
+                    song._rawUrl = song.url;
+                    song.url = applyQuality(song.url);
+                });
+
                 if (playlist.length > 0) {
                     loadSong(0);
                     renderPlaylist();
@@ -691,10 +778,10 @@
             updateSeekBarStyle();
         }
 
-        initPlayer(document.getElementById('playlistId').value || '17987598379');
+        initPlayer(document.getElementById('playlistId').value || '19723756');
     
         function loadPlaylist() {
-            const id = document.getElementById('playlistId').value || '17987598379';
+            const id = document.getElementById('playlistId').value || '19723756';
             initPlayer(id);
         }
     </script>

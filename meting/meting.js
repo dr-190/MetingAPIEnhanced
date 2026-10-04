@@ -267,22 +267,43 @@ function createMetingRoute(requestFunc, moduleDefinitions) {
         }
 
         case 'url': {
-          let urlRes = await callModule('song_url_v1_302', {
+          const level = metingBrToLevel(opts.br, params.level)
+          const immerseType = normalizeImmerseType(params.immerseType)
+
+          // v4.41.0: level=sky 时可通过 immerseType 选择沉浸声类型
+          const urlQuery = {
             id: String(id),
-            level: metingBrToLevel(opts.br),
-            cookie: cookieObj
-          })
+            level,
+            cookie: cookieObj,
+            ...(level === 'sky' && immerseType ? { immerseType } : {}),
+          }
+
+          let urlRes = await callModule('song_url_v1_302', urlQuery)
           let finalUrl = urlRes.redirectUrl || null
 
           // fallback 到 song_url_v1（xeapi 接口更稳定）
           if (!finalUrl) {
-            urlRes = await callModule('song_url_v1', {
-              id: String(id),
-              level: metingBrToLevel(opts.br),
-              cookie: cookieObj
-            })
+            urlRes = await callModule('song_url_v1', urlQuery)
             const dataItem = (urlRes.body && urlRes.body.data && urlRes.body.data[0]) || null
             finalUrl = dataItem && dataItem.url
+          }
+
+          // v4.41.0: vivid 等新音质需 android 端 cookie（os/appver），
+          // 由上游模块自动补齐；此处仅在对端不支持该音质时降级重试。
+          if (!finalUrl && level !== 'exhigh') {
+            const fallbackQuery = {
+              id: String(id),
+              level: 'exhigh',
+              cookie: cookieObj,
+            }
+            urlRes = await callModule('song_url_v1_302', fallbackQuery)
+            finalUrl = urlRes.redirectUrl || null
+            if (!finalUrl) {
+              urlRes = await callModule('song_url_v1', fallbackQuery)
+              const dataItem =
+                (urlRes.body && urlRes.body.data && urlRes.body.data[0]) || null
+              finalUrl = dataItem && dataItem.url
+            }
           }
 
           if (
@@ -369,10 +390,45 @@ function metingBrToNcmBr(br) {
   }
 }
 
+// v4.41.0 合法音质等级。
+// 详见 api-enhanced/module/song_url_v1.js：
+// standard, exhigh, lossless, hires, jyeffect(高清臻音), vivid(臻音全景声),
+// jymaster(超清母带), sky(沉浸环绕声)
+const VALID_LEVELS = new Set([
+  'standard',
+  'higher',
+  'exhigh',
+  'lossless',
+  'hires',
+  'jyeffect',
+  'vivid',
+  'jymaster',
+  'sky',
+])
+
+// sky(v4.41.0 起) 支持的沉浸声类型
+const VALID_IMMERSE_TYPES = new Set([
+  'c51',
+  'ste',
+  'aac',
+  'c512',
+  'ste2',
+  'aac2',
+])
+
 /**
  * meting 协议 br (kbps) → NCM level
+ *
+ * meting 只定义了 128/192/320/2000 四档，映射到 NCM 的常规音质；
+ * 若调用方直接传 api-enhanced 的 level 名（如 vivid/jymaster/sky），则原样透传，
+ * 这样可以在保持 meting 协议兼容的同时使用 v4.41.0 新增的臻音全景声等音质。
  */
-function metingBrToLevel(br) {
+function metingBrToLevel(br, level) {
+  // 显式传入合法 level 名时优先使用（v4.41.0 新特性）
+  if (typeof level === 'string' && VALID_LEVELS.has(level)) {
+    return level
+  }
+
   const n = parseInt(br, 10)
   switch (n) {
     case 2000: return 'lossless'
@@ -381,6 +437,16 @@ function metingBrToLevel(br) {
     case 128: return 'standard'
     default: return 'exhigh'
   }
+}
+
+/**
+ * 规范化沉浸声类型，非法值回退为 c51（与上游默认值保持一致）
+ */
+function normalizeImmerseType(immerseType) {
+  if (typeof immerseType === 'string' && VALID_IMMERSE_TYPES.has(immerseType)) {
+    return immerseType
+  }
+  return ''
 }
 
 module.exports = { createMetingRoute }

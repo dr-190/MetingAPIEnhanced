@@ -2,14 +2,15 @@
 
 基于 [NeteaseCloudMusicAPI Enhanced](https://github.com/neteasecloudmusicapienhanced/api-enhanced) 的 Meting 协议兼容层，支持解灰、VIP Cookie 透传、APlayer/MetingJS 集成。
 
-> 当前版本：`v1.0.0`
+> 当前版本：`v1.1.0`（基于 api-enhanced `v4.41.0`）
 
 ## 特性
 
 - 完全兼容 [injahow/meting-api](https://github.com/injahow/meting-api) 协议
 - Cookie 完全透传（VIP 即时生效）
 - 灰色歌曲自动解灰
-- 支持随机中国 IP、weapi/eapi/xeapi 多套加密
+- 支持随机中国 IP、weapi/eapi/xeapi/neapi 多套加密
+- 支持无损 / Hi-Res / 超清母带 / 臻音全景声(`vivid`) / 沉浸环绕声(`sky`) 音质
 - 仅支持网易云（server=netease），其他静默忽略
 - 支持 APlayer/MetingJS 集成
 
@@ -123,10 +124,48 @@ PORT=3456 node app.js
 | `id` | 歌曲/歌单 ID；search 时为搜索关键词 |
 | `server` | 数据源：netease（默认），其他值静默忽略 |
 | `br` | 音质：128/192/320/2000(FLAC)，默认 320 |
+| `level` | 直接指定 api-enhanced 音质等级，见下方「音质等级」 |
+| `immerseType` | `level=sky` 时的沉浸声类型：`c51`/`ste`/`aac`/`c512`/`ste2`/`aac2`，默认 `c51` |
 | `cover` | 封面分辨率，默认 300 |
 | `limit` | 搜索条数，默认 30 |
 | `page` | 搜索页码，默认 1 |
 | `search_type` | 搜索类型：1 单曲/10 专辑/100 歌手/1000 歌单 |
+
+### 音质等级（v4.41.0）
+
+除 meting 协议的 `br` 参数外，还可通过 `level` 直接使用 api-enhanced v4.41.0 的音质等级：
+
+| level | 说明 |
+|-------|------|
+| `standard` | 标准音质（128kbps） |
+| `higher` | 较高音质（192kbps） |
+| `exhigh` | 极高音质（320kbps） |
+| `lossless` | 无损音质（FLAC） |
+| `hires` | Hi-Res 音质 |
+| `jyeffect` | 高清臻音 |
+| `vivid` | **臻音全景声**（v4.41.0 新增，返回 `av3a` 格式） |
+| `jymaster` | 超清母带 |
+| `sky` | 沉浸环绕声，可配合 `immerseType` 使用 |
+
+> 说明：`v4.41.0` 起，`jyeffect` 由「高清环绕声」更名为「高清臻音」，并新增
+> `vivid`（臻音全景声）与 `c512`/`ste2`/`aac2` 三种沉浸声类型。
+> 兼容层会自动为 `vivid` 补齐 android 端 Cookie（`os`/`appver`）。
+> 实际可用音质取决于账号权限：VIP 账号方可返回无损及以上音质，
+> 匿名/免费账号会被服务端降级为 `standard`，此时兼容层会自动降级重试。
+
+```bash
+# 使用 br 参数（meting 协议，推荐用于 MetingJS）
+GET /meting/?type=url&id=347230&br=320
+
+# 使用 level 参数（api-enhanced 音质等级）
+GET /meting/?type=url&id=347230&level=lossless
+
+# 臻音全景声
+GET /meting/?type=url&id=347230&level=vivid
+
+# 沉浸环绕声 + 指定沉浸声类型
+GET /meting/?type=url&id=347230&level=sky&immerseType=c512
+```
 
 ---
 
@@ -181,25 +220,61 @@ curl -H "Cookie: MUSIC_U=你的token" https://your-domain.com/meting/?type=url&i
 
 ## 更新 api-enhanced
 
-当 api-enhanced 有更新时，只需更新 `api-enhanced/` 子目录，然后重新应用补丁：
+当 api-enhanced 有更新时，只需更新 `api-enhanced/` 子目录：
 
 ```bash
 cd /www/wwwroot/Metingapi/MetingAPIEnhanced
-rm -rf api-enhanced
-git clone --depth 1 https://github.com/neteasecloudmusicapienhanced/api-enhanced.git api-enhanced
-cd api-enhanced && npm install && cd ..
 
-# 重新应用本地补丁
-npx patch-package
+# 备份本地配置
+cp .env /tmp/meting-env.bak
+
+# 拉取指定版本（示例：v4.41.0）
+rm -rf api-enhanced
+git clone --depth 1 --branch v4.41.0 \
+  https://github.com/neteasecloudmusicapienhanced/api-enhanced.git api-enhanced
+rm -rf api-enhanced/.git
+
+# 重新安装依赖（新增依赖会同步到根 node_modules）
+npm install
 ```
 
 我们的文件（`meting/`、`server.js`、`app.js`、`.env`）不会被覆盖。
 
-> 提示：项目已配置 `postinstall` 脚本，执行 `npm install` 时会自动运行 `patch-package`。如果补丁应用失败，请检查 `patches/` 目录下的补丁是否仍然适用于当前 `api-enhanced` 版本。
+> **注意**：`api-enhanced/data/china_ip_ranges.txt` 是上游仓库跟踪的运行时数据，
+> 用于随机中国 IP 功能，需随仓库一起提交（`deviceid.txt` 未被代码引用，已忽略）。
+> 若克隆后缺失该文件，随机中国 IP 会退化为内置兜底 IP。
+
+> **关于本地补丁**：`v4.41.0` 起，原先 `patches/` 中针对
+> `@neteasecloudmusicapienhanced/unblockmusic-utils@0.4.0` 的补丁已不再需要：
+> `qijieya` 音源地址修正已合并进上游 `0.4.5`，`qijieyaPlus` 已被上游归档。
+> 因此 `patches/` 目录已清空，`patch-package` 仍保留用于将来添加补丁。
 
 ---
 
 ## 更新日志
+
+### v1.1.0
+
+- **升级 `api-enhanced` 至 v4.41.0**
+- 新增 `vivid`（臻音全景声）音质支持，`level` 参数可直接透传 api-enhanced 音质等级
+- 新增 `immerseType` 参数，`level=sky` 时可选 `c51`/`ste`/`aac`/`c512`/`ste2`/`aac2`
+- 适配 v4.41.0 音质等级变更：`jyeffect` 由「高清环绕声」更名为「高清臻音」
+- 适配 `song_url_v1_302` 返回值结构变更（`data.url` 与 `data[0].url` 双兼容）
+- 新增音质降级重试：请求的高音质不可用时自动回退到 `exhigh`
+- 同步 v4.41.0 依赖：新增 `fzstd`（neapi 解压），升级 `unblockmusic-utils@0.4.5`、`axios@1.20.0`、`music-metadata@11.16.1`、`yargs@18.2.0`
+- 移除已无必要的 `unblockmusic-utils` 补丁（`qijieya` 修正已合并上游）
+- 补充 `api-enhanced/data/china_ip_ranges.txt`，修复随机中国 IP 退化为兜底逻辑的问题
+- 兼容 v4.41.0 新增的 `neapi` 加密方式与 NMTID 下发逻辑
+- 测试页 (`meting/meting.html`) 音质选择器支持全部 v4.41.0 音质等级
+  （`standard`/`higher`/`exhigh`/`lossless`/`hires`/`jyeffect`/`vivid`/`jymaster`/`sky`），
+  并保留原有 `br` 协议选项
+- 测试页选择 `level=sky` 时显示沉浸声类型 (`immerseType`) 选择器
+- 测试页新增「无损音质」「臻音全景声」「沉浸环绕声」快速测试按钮
+- 测试页参数文档与接口示例补充 `level`/`immerseType` 说明
+- 在线播放器 (`public/player.html`) 新增音质切换下拉框，
+  切换时保持播放进度，切歌时沿用所选音质
+- 播放器音质状态以 DOM 选择器为唯一数据源，并做防御性处理，
+  避免脚本初始化异常时的引用错误
 
 ### v1.0.0
 

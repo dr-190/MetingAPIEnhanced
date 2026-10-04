@@ -40,10 +40,16 @@ build/
 # API Enhanced specific
 api-enhanced/node_modules/
 api-enhanced/.git/
-api-enhanced/data/
 api-enhanced/*.log
 api-enhanced/test.png
 api-enhanced/test.txt
+
+# api-enhanced/data/ 是上游仓库跟踪的运行时数据（china_ip_ranges.txt 等），
+# 必须随仓库一起提交，否则随机中国 IP 会退化为兜底逻辑。
+# 仅忽略运行时产生的数据文件。
+api-enhanced/data/*.cache
+api-enhanced/data/*.log
+api-enhanced/data/deviceid.txt
 
 # Backup files
 *.bak

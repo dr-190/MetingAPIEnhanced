@@ -584,6 +584,10 @@ export function device_kickoff(
 
 export function device_list(params: RequestBaseConfig): Promise<Response>
 
+export function deviceinfo_center_upload(
+  params: { deviceName: string; name?: string } & RequestBaseConfig,
+): Promise<Response>
+
 export function digitalAlbum_ordering(
   params: {
     payment: string
@@ -1083,6 +1087,10 @@ export function register_checktoken_v3(
   params: { refresh?: boolean | string } & RequestBaseConfig,
 ): Promise<Response>
 
+export function register_neapikey(
+  params: { version?: string | number; behavior?: string } & RequestBaseConfig,
+): Promise<Response>
+
 export function register_xeapikey(
   params: { deviceId?: string; currentKeyVersion?: string } & RequestBaseConfig,
 ): Promise<Response>
@@ -1378,6 +1386,7 @@ export const enum SoundQualityType {
   jyeffect = 'jyeffect',
   jymaster = 'jymaster',
   sky = 'sky',
+  vivid = 'vivid',
 }
 
 export function song_url_v1(
@@ -2880,4 +2889,29 @@ export function voicelist_trans(
     position?: string | number
   } & MultiPageConfig &
     RequestBaseConfig,
+): Promise<Response>
+
+export function fans_group_detail(
+  params: {
+    groupId: string
+    scene?: string
+  } & RequestBaseConfig,
+): Promise<Response>
+
+export function fans_group_feed_recommend(
+  params: {
+    fansGroupId: string
+    cursor?: string
+    size?: string | number
+  } & RequestBaseConfig,
+): Promise<Response>
+
+export function fans_group_user_groups(
+  params?: RequestBaseConfig,
+): Promise<Response>
+
+export function fans_group_user_group_detail(
+  params: {
+    groupId: string | number
+  } & RequestBaseConfig,
 ): Promise<Response>

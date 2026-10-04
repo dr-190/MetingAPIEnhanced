@@ -18,12 +18,14 @@ const {
 } = require('./index')
 const { URLSearchParams, URL } = require('url')
 const { APP_CONF } = require('./config.json')
+const { loadNeapiKey } = require('./neapiKey')
 const {
   getToken: antiCheatTokenV2,
 } = require('../module/register_checktoken_v2')
 const {
   getToken: antiCheatTokenV3,
 } = require('../module/register_checktoken_v3')
+const registerNeapikey = require('../module/register_neapikey')
 
 // 预先读取匿名token并缓存
 const anonymous_token = fs.readFileSync(
@@ -67,6 +69,23 @@ const WNMCID = (function () {
   }
   return `${randomString}.${now().toString()}.01.0`
 })()
+
+let NMTID = ''
+let NMTID_RETRIES_LEFT = 3
+
+// neapi 配置过期时只让一个请求去刷新，并发的其余请求共用同一次结果
+let neapiUserStatus = ''
+let neapiRefreshing = null
+const refreshNeapiKey = (version) => {
+  if (!neapiRefreshing) {
+    neapiRefreshing = registerNeapikey({ version, behavior: 'update' }, null)
+      .catch((error) => console.log('[ERR]', error))
+      .finally(() => {
+        neapiRefreshing = null
+      })
+  }
+  return neapiRefreshing
+}
 
 // 预先定义osMap
 const osMap = {
@@ -124,6 +143,7 @@ const DOMAIN = APP_CONF.domain
 const API_DOMAIN = APP_CONF.apiDomain
 const EAPI_DOMAIN = APP_CONF.eapiDomain
 const XEAPI_DOMAIN = APP_CONF.xeapiDomain
+const NEAPI_DOMAIN = APP_CONF.neapiDomain
 const ENCRYPT_RESPONSE = APP_CONF.encryptResponse
 const SPECIAL_STATUS_CODES = new Set([201, 302, 400, 502, 800, 801, 802, 803])
 
@@ -136,7 +156,7 @@ const chooseUserAgent = (crypto, uaType = 'pc') => {
 }
 
 // cookie处理
-const processCookieObject = (cookie, uri) => {
+const processCookieObject = (cookie, crypto) => {
   const _ntes_nuid = CryptoJS.lib.WordArray.random(32).toString()
   const os = osMap[cookie.os] || osMap['pc']
 
@@ -155,8 +175,14 @@ const processCookieObject = (cookie, uri) => {
     appver: cookie.appver || os.appver,
   }
 
-  if (uri.indexOf('login') === -1) {
-    processedCookie['NMTID'] = CryptoJS.lib.WordArray.random(16).toString()
+  // 服务端下发条件为不带NMTID请求任意eapi加密方式接口
+  if (cookie.NMTID) {
+    processedCookie['NMTID'] = cookie.NMTID
+  } else if (NMTID) {
+    processedCookie['NMTID'] = NMTID
+  } else if (NMTID_RETRIES_LEFT <= 0 || crypto !== 'eapi') {
+    processedCookie['NMTID'] =
+      '00O' + CryptoJS.lib.WordArray.random(19).toString()
   }
 
   if (!processedCookie.MUSIC_U) {
@@ -205,6 +231,12 @@ const createRequest = async (uri, data, options) => {
     const headers = options.headers ? { ...options.headers } : {}
     const ip = options.realIP || options.ip || ''
 
+    // 加密方式选择
+    let crypto = options.crypto
+    if (crypto === '') {
+      crypto = APP_CONF.encrypt ? 'eapi' : 'api'
+    }
+
     // IP头设置
     if (ip) {
       headers['X-Real-IP'] = ip
@@ -217,18 +249,12 @@ const createRequest = async (uri, data, options) => {
     }
 
     if (typeof cookie === 'object') {
-      cookie = processCookieObject(cookie, uri)
+      cookie = processCookieObject(cookie, crypto)
       headers['Cookie'] = cookieObjToString(cookie)
     }
     let url = ''
     let encryptData = ''
-    let crypto = options.crypto
     const csrfToken = cookie['__csrf'] || ''
-
-    // 加密方式选择
-    if (crypto === '') {
-      crypto = APP_CONF.encrypt ? 'eapi' : 'api'
-    }
 
     const answer = { status: 500, body: {}, cookie: [] }
 
@@ -312,6 +338,47 @@ const createRequest = async (uri, data, options) => {
         })
         break
 
+      case 'neapi':
+        const neapiKey = loadNeapiKey()
+        if (!neapiKey) {
+          throw new Error('neapi config is missing')
+        }
+        // 超过 circleTime 就后台刷新，本次仍用手上的配置
+        if (now() - neapiKey.fetchedAt >= neapiKey.circleTime) {
+          refreshNeapiKey(neapiKey.version)
+        }
+        const neapiCookie = {
+          osver: cookie.osver,
+          deviceId: cookie.deviceId,
+          os: cookie.os,
+          appver: cookie.appver,
+          versioncode: cookie.versioncode || '140',
+          mobilename: cookie.mobilename || '',
+          buildver: cookie.buildver || now().toString().substr(0, 10),
+          resolution: cookie.resolution || '1920x1080',
+          __csrf: csrfToken,
+          channel: cookie.channel,
+          requestId: generateRequestId(),
+        }
+        if (cookie.MUSIC_U) neapiCookie['MUSIC_U'] = cookie.MUSIC_U
+        if (cookie.MUSIC_A) neapiCookie['MUSIC_A'] = cookie.MUSIC_A
+        headers['Cookie'] = createHeaderCookie(neapiCookie)
+        headers['User-Agent'] = options.ua || chooseUserAgent('api', 'android')
+        headers['content-type'] =
+          'application/x-www-form-urlencoded;charset=utf-8'
+        // 服务端按 X-ER 选密钥，配置过期时由下面的 777/999 分支重拉并重试
+        headers['X-ER'] = String(neapiKey.version)
+        if (neapiUserStatus) headers['X-USER-STATUS'] = neapiUserStatus
+
+        const neapiBody = { ...data }
+        delete neapiBody.e_r
+        encryptData = encrypt.neapi(
+          new URLSearchParams(neapiBody).toString(),
+          neapiKey,
+        )
+        url = (options.domain || NEAPI_DOMAIN) + '/neapi/' + uri.substr(5)
+        break
+
       case 'eapi':
       case 'api':
         // header创建
@@ -332,9 +399,8 @@ const createRequest = async (uri, data, options) => {
 
         if (cookie.MUSIC_U) header['MUSIC_U'] = cookie.MUSIC_U
         if (cookie.MUSIC_A) header['MUSIC_A'] = cookie.MUSIC_A
-        if (options.checkToken) {
-          header['X-antiCheatToken'] = token
-        }
+        if (options.checkToken) header['X-antiCheatToken'] = token
+        if (crypto === 'eapi' && cookie.NMTID) header['NMTID'] = cookie.NMTID
 
         headers['Cookie'] = createHeaderCookie(header)
         headers['User-Agent'] =
@@ -359,12 +425,19 @@ const createRequest = async (uri, data, options) => {
         console.log('[ERR]', 'Unknown Crypto:', crypto)
         break
     }
+    const use_e_r = (crypto === 'eapi' || crypto === 'weapi') && data.e_r
+    const use_xeapi = crypto === 'xeapi'
+    const use_neapi = crypto === 'neapi'
+
     // settings创建
     let settings = {
       method: 'POST',
       url: url,
       headers: headers,
-      data: new URLSearchParams(encryptData).toString(),
+      // neapi 的请求体就是容器本身，不是表单字段
+      data: use_neapi
+        ? encryptData
+        : new URLSearchParams(encryptData).toString(),
       httpAgent: createHttpAgent(),
       httpsAgent: createHttpsAgent(),
     }
@@ -375,9 +448,7 @@ const createRequest = async (uri, data, options) => {
     }
 
     // 使用返回值加密
-    const use_e_r = (crypto === 'eapi' || crypto === 'weapi') && data.e_r
-    const use_xeapi = crypto === 'xeapi'
-    if (use_e_r || use_xeapi) {
+    if (use_e_r || use_xeapi || use_neapi) {
       settings.encoding = null
       settings.responseType = 'arraybuffer'
     }
@@ -418,11 +489,60 @@ const createRequest = async (uri, data, options) => {
     }
     // console.log(settings.headers);
     axios(settings)
-      .then((res) => {
+      .then(async (res) => {
         const body = res.data
-        answer.cookie = (res.headers['set-cookie'] || []).map((x) =>
-          x.replace(/\s*Domain=[^(;|$)]+;*/, ''),
-        )
+        const setCookies = res.headers['set-cookie'] || []
+
+        const cleanCookie = (x) => x.replace(/\s*Domain=[^(;|$)]+;*/, '')
+
+        // 仅对真正未携带 NMTID 的探测请求采集并消耗重试次数
+        if (
+          crypto === 'eapi' &&
+          !NMTID &&
+          NMTID_RETRIES_LEFT > 0 &&
+          !cookie.NMTID
+        ) {
+          NMTID_RETRIES_LEFT--
+          answer.cookie = (
+            typeof res.headers['set-cookie'] === 'string'
+              ? [res.headers['set-cookie']]
+              : res.headers['set-cookie'] || []
+          ).map((x) => {
+            const cleaned = cleanCookie(x)
+            const match = x.match(/(?:^|;\s*)NMTID=([^;]+)/)
+            if (match) {
+              //不需要处理竞争, 官方客户端真实操作
+              NMTID = match[1]
+            }
+            return cleaned
+          })
+        } else {
+          answer.cookie = setCookies.map(cleanCookie)
+        }
+
+        // 空值同样要记下来，否则状态恢复后会一直带着上一次的值
+        const userStatus = res.headers['x-user-status'] || ''
+        if (use_neapi) {
+          neapiUserStatus = userStatus
+          if (
+            (userStatus === '777' || userStatus === '999') &&
+            !options.neapiRetried
+          ) {
+            // 配置已轮换：刷新后重试一次
+            await refreshNeapiKey(loadNeapiKey().version)
+            try {
+              resolve(
+                await createRequest(uri, data, {
+                  ...options,
+                  neapiRetried: true,
+                }),
+              )
+            } catch (error) {
+              reject(error)
+            }
+            return
+          }
+        }
 
         // debug: 统一注释块，需要时取消注释查看请求/返回的原始密文
 
@@ -442,6 +562,11 @@ const createRequest = async (uri, data, options) => {
               xeapiSessionKey = res.headers['x-encr-sskey']
             }
             answer.body = encrypt.xeapiResDecrypt(Buffer.from(body))
+          } else if (use_neapi) {
+            answer.body = encrypt.neapiResDecrypt(
+              Buffer.from(body).toString(),
+              loadNeapiKey(),
+            )
           } else if (use_e_r) {
             answer.body = encrypt.eapiResDecrypt(
               body.toString('hex').toUpperCase(),
